@@ -180,16 +180,39 @@ public class RegistroPagoDialog extends JDialog {
         lblSaldo.setForeground(COLOR_TEXT);
         infoFooter.add(lblSaldo);
 
-        txtMonto.addKeyListener(new java.awt.event.KeyAdapter() {
-            public void keyReleased(java.awt.event.KeyEvent e) {
-                try {
-                    double m = Double.parseDouble(txtMonto.getText());
-                    lblSaldo.setText("Saldo pendiente tras este pago: " + currencyFormat.format(saldoPendiente - m));
-                } catch (Exception ex) {
-                    lblSaldo.setText("Monto inválido");
+        final double finalSaldo = saldoPendiente;
+        Runnable actualizarSaldo = () -> {
+            try {
+                String text = txtMonto.getText().trim();
+                if (text.isEmpty()) {
+                    lblSaldo.setText("Saldo pendiente tras este pago: " + currencyFormat.format(finalSaldo));
+                    return;
                 }
+                double m = Double.parseDouble(text);
+                lblSaldo.setText("Saldo pendiente tras este pago: " + currencyFormat.format(finalSaldo - m));
+            } catch (Exception ex) {
+                lblSaldo.setText("Monto inválido");
+            }
+        };
+
+        // Escuchar cambios en el documento para actualización en tiempo real (teclado, copiar/pegar, programmatico)
+        txtMonto.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                actualizarSaldo.run();
+            }
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                actualizarSaldo.run();
+            }
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                actualizarSaldo.run();
             }
         });
+
+        // Inicializar el saldo de inmediato
+        actualizarSaldo.run();
 
         // Botones
         JPanel buttons = new JPanel(new GridLayout(1, 2, 15, 0));
