@@ -14,6 +14,7 @@ public class PagoRealizado {
     private String metodoPago;
     private String comprobante;
     private double saldoRestante;
+    private String comprobanteRuta;
 
     public enum ModalidadPago {
         ABONO_SABADO("Abono Sábado"),
@@ -109,5 +110,13 @@ public class PagoRealizado {
 
     public void setSaldoRestante(double saldoRestante) {
         this.saldoRestante = saldoRestante;
+    }
+
+    public String getComprobanteRuta() {
+        return comprobanteRuta;
+    }
+
+    public void setComprobanteRuta(String comprobanteRuta) {
+        this.comprobanteRuta = comprobanteRuta;
     }
 }

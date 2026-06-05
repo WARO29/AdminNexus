@@ -29,6 +29,8 @@ public class RegistroPagoDialog extends JDialog {
     private JComboBox<String> cbMetodo;
     private JTextField txtCuota;
     private JLabel lblNombreArchivo;
+    private JLabel lblAdjunto;
+    private JButton btnSubir;
     private File archivoOrden;
     
     private final int idEstudiante;
@@ -104,7 +106,7 @@ public class RegistroPagoDialog extends JDialog {
         cbModalidad = new JComboBox<>(PagoRealizado.ModalidadPago.values());
         estilizarCombo(cbModalidad, "Modalidad de Cobro");
 
-        String[] metodos = {"Cuenta Bancaria", "Nequi", "Daviplata", "Efectivo"};
+        String[] metodos = {"Cuenta Bancaria", "Nequi", "Daviplata", "Dale", "Nubank", "Otras Cuentas / Plataformas", "Efectivo"};
         cbMetodo = new JComboBox<>(metodos);
         estilizarCombo(cbMetodo, "Método de Pago");
 
@@ -124,7 +126,8 @@ public class RegistroPagoDialog extends JDialog {
         JPanel filePanel = new JPanel(new BorderLayout(10, 0));
         filePanel.setOpaque(false);
         if (!esPreferencial) {
-            form.add(crearLabel("ADJUNTAR ORDEN DE PAGO FIRMADA"));
+            lblAdjunto = crearLabel("ADJUNTAR COMPROBANTE DE TRANSACCIÓN (Requerido)");
+            form.add(lblAdjunto);
             
             // Restringir modalidades para registro normal (Excluir preferenciales)
             cbModalidad.setModel(new DefaultComboBoxModel<>(new PagoRealizado.ModalidadPago[]{
@@ -133,8 +136,8 @@ public class RegistroPagoDialog extends JDialog {
                 PagoRealizado.ModalidadPago.CUOTA_MENSUAL
             }));
             
-            JButton btnSubir = new JButton("Seleccionar PDF");
-            btnSubir.setPreferredSize(new Dimension(150, 40));
+            btnSubir = new JButton("Seleccionar Archivo (PDF, Imagen)");
+            btnSubir.setPreferredSize(new Dimension(220, 40));
             btnSubir.setCursor(new Cursor(Cursor.HAND_CURSOR));
             btnSubir.addActionListener(e -> seleccionarArchivo());
             
@@ -145,6 +148,37 @@ public class RegistroPagoDialog extends JDialog {
             filePanel.add(btnSubir, BorderLayout.WEST);
             filePanel.add(lblNombreArchivo, BorderLayout.CENTER);
             form.add(filePanel);
+
+            // Listener reactivo para habilitar/deshabilitar carga de archivos
+            cbMetodo.addActionListener(e -> {
+                boolean esEfectivo = "Efectivo".equals(cbMetodo.getSelectedItem().toString());
+                if (esEfectivo) {
+                    lblAdjunto.setText("ADJUNTAR COMPROBANTE (No requerido para Efectivo)");
+                    lblNombreArchivo.setText("No requerido para Efectivo");
+                    lblNombreArchivo.setForeground(Color.GRAY);
+                    btnSubir.setEnabled(false);
+                    archivoOrden = null;
+                } else {
+                    lblAdjunto.setText("ADJUNTAR COMPROBANTE DE TRANSACCIÓN (Requerido)");
+                    btnSubir.setEnabled(true);
+                    if (archivoOrden == null) {
+                        lblNombreArchivo.setText("Ningún archivo seleccionado");
+                        lblNombreArchivo.setForeground(COLOR_TEXT);
+                    } else {
+                        lblNombreArchivo.setText("✓ " + archivoOrden.getName());
+                        lblNombreArchivo.setForeground(new Color(34, 197, 94));
+                    }
+                }
+            });
+
+            // Lógica de habilitación inicial
+            boolean esEfectivo = "Efectivo".equals(cbMetodo.getSelectedItem().toString());
+            if (esEfectivo) {
+                lblAdjunto.setText("ADJUNTAR COMPROBANTE (No requerido para Efectivo)");
+                lblNombreArchivo.setText("No requerido para Efectivo");
+                lblNombreArchivo.setForeground(Color.GRAY);
+                btnSubir.setEnabled(false);
+            }
         } else {
             // Lógica especial para preferencial
             lblTitle.setText("Pago Preferencial");
@@ -278,8 +312,8 @@ public class RegistroPagoDialog extends JDialog {
 
     private void seleccionarArchivo() {
         JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Seleccionar Orden de Pago");
-        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Documentos PDF", "pdf"));
+        chooser.setDialogTitle("Seleccionar Comprobante de Transacción");
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PDF e Imágenes", "pdf", "jpg", "jpeg", "png"));
         int returnVal = chooser.showOpenDialog(this);
         if (returnVal == JFileChooser.APPROVE_OPTION) {
             archivoOrden = chooser.getSelectedFile();
@@ -297,8 +331,11 @@ public class RegistroPagoDialog extends JDialog {
 
     private void procesarPago() {
         try {
-            if (!esPreferencial && archivoOrden == null) {
-                throw new Exception("Es obligatorio adjuntar la orden de pago firmada para proceder.");
+            String metodo = cbMetodo.getSelectedItem().toString();
+            boolean requiereArchivo = !esPreferencial && !"Efectivo".equals(metodo);
+            
+            if (requiereArchivo && archivoOrden == null) {
+                throw new Exception("Es obligatorio adjuntar el comprobante de transferencia para proceder.");
             }
             
             double monto = Double.parseDouble(txtMonto.getText());
@@ -308,9 +345,33 @@ public class RegistroPagoDialog extends JDialog {
             pago.setEstudianteId(idEstudiante);
             pago.setMonto(monto);
             pago.setModalidad((PagoRealizado.ModalidadPago) cbModalidad.getSelectedItem());
-            pago.setMetodoPago(cbMetodo.getSelectedItem().toString());
+            pago.setMetodoPago(metodo);
             pago.setComprobante("Cuota #" + txtCuota.getText());
             pago.setFecha(java.time.LocalDateTime.now());
+
+            // Procesar y copiar el archivo si corresponde
+            if (requiereArchivo && archivoOrden != null) {
+                File folder = new File("uploads/comprobantes");
+                if (!folder.exists()) {
+                    folder.mkdirs();
+                }
+                
+                String ext = "";
+                String name = archivoOrden.getName();
+                int lastDot = name.lastIndexOf('.');
+                if (lastDot > 0) {
+                    ext = name.substring(lastDot);
+                }
+                
+                String nuevoNombre = "comprobante_" + idEstudiante + "_" + System.currentTimeMillis() + ext;
+                File destino = new File(folder, nuevoNombre);
+                
+                // Copiar archivo físico
+                java.nio.file.Files.copy(archivoOrden.toPath(), destino.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                
+                // Guardar la ruta relativa en el objeto PagoRealizado
+                pago.setComprobanteRuta("uploads/comprobantes/" + nuevoNombre);
+            }
 
             PagoService service = new PagoService();
             if (service.registrarPagoTransaccional(pago, usuarioActual.getIdusuario(), "Localhost")) {

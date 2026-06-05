@@ -59,6 +59,15 @@ public class PagosController {
             } catch (SQLException e) {
                 // Manejo silencioso si falla el MODIFY
             }
+
+            // 5. Verificar comprobante_ruta en pagos_realizados
+            try (ResultSet rs = metaData.getColumns(null, null, "pagos_realizados", "comprobante_ruta")) {
+                if (!rs.next()) {
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.execute("ALTER TABLE pagos_realizados ADD COLUMN comprobante_ruta VARCHAR(255) AFTER comprobante");
+                    }
+                }
+            }
             
         } catch (SQLException e) {
             System.err.println("Error verificando columnas: " + e.getMessage());
@@ -341,6 +350,7 @@ public class PagosController {
                     h.put("modalidad", rs.getString("modalidad"));
                     h.put("metodo", rs.getString("metodo_pago"));
                     h.put("comprobante", rs.getString("comprobante"));
+                    h.put("comprobante_ruta", rs.getString("comprobante_ruta"));
                     h.put("saldo_despues", rs.getDouble("saldo_restante"));
                     historial.add(h);
                 }

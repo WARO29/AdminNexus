@@ -106,7 +106,7 @@ public class PagoService {
             }
 
             // 3. Insertar el Pago Realizado (id_estudiante)
-            String sqlInsertPago = "INSERT INTO pagos_realizados (id_estudiante, monto, modalidad, metodo_pago, comprobante, saldo_restante) VALUES (?, ?, ?, ?, ?, ?)";
+            String sqlInsertPago = "INSERT INTO pagos_realizados (id_estudiante, monto, modalidad, metodo_pago, comprobante, saldo_restante, comprobante_ruta) VALUES (?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement psPago = conn.prepareStatement(sqlInsertPago)) {
                 psPago.setInt(1, pago.getEstudianteId());
                 psPago.setDouble(2, pago.getMonto());
@@ -114,6 +114,7 @@ public class PagoService {
                 psPago.setString(4, pago.getMetodoPago());
                 psPago.setString(5, pago.getComprobante());
                 psPago.setDouble(6, nuevoSaldo);
+                psPago.setString(7, pago.getComprobanteRuta());
                 psPago.executeUpdate();
             }
 
