@@ -108,11 +108,15 @@ public class ReciboPagoDialog extends JDialog {
         // TABLA DE CUOTAS (Relación de Pagos)
         content.add(crearSeccionHeader("ESTADO DE CUOTAS (PLAN DE PAGO)"));
         if (dataPlan != null) {
-            int pagadas = (int) dataPlan.get("cuotas_pagadas");
             int totales = (int) dataPlan.get("cuotas_totales");
             double montoTotal = (double) dataPlan.get("monto_total");
-            double montoCuota = montoTotal / totales;
-            
+            double saldoPendientePlan = (double) dataPlan.get("saldo");
+
+            java.util.List<Map<String, Object>> historial = ctrl.obtenerHistorialEstudiante(pago.getEstudianteId());
+            // Invertir el historial para que quede en orden cronológico (antiguo a reciente)
+            java.util.Collections.reverse(historial);
+            int paidCount = historial.size();
+
             JPanel tablaCuotas = new JPanel(new GridLayout(0, 1));
             tablaCuotas.setOpaque(false);
             
@@ -125,32 +129,54 @@ public class ReciboPagoDialog extends JDialog {
             th.add(crearCeldaHeader("ESTADO"));
             tablaCuotas.add(th);
  
-            double saldoAcumulado = montoTotal;
-            // Generar filas
-            for (int i = 1; i <= totales; i++) {
+            // 1. Mostrar las cuotas pagadas a partir del historial real
+            for (int i = 0; i < paidCount; i++) {
+                Map<String, Object> p = historial.get(i);
+                double valorPagado = (double) p.get("monto");
+                double saldoRestante = (double) p.get("saldo_despues");
+                String concepto = p.get("comprobante") != null ? p.get("comprobante").toString() : "Cuota #" + (i + 1);
+
                 JPanel tr = new JPanel(new GridLayout(1, 4));
                 tr.setOpaque(false);
                 tr.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(243, 244, 246)));
                 
-                tr.add(crearCelda("Cuota #" + i));
-                tr.add(crearCelda(currencyFormat.format(montoCuota)));
+                tr.add(crearCelda(concepto));
+                tr.add(crearCelda(currencyFormat.format(valorPagado)));
+                tr.add(crearCelda(currencyFormat.format(saldoRestante)));
                 
-                saldoAcumulado -= montoCuota;
-                if (saldoAcumulado < 0) saldoAcumulado = 0;
-                tr.add(crearCelda(currencyFormat.format(saldoAcumulado)));
-                
-                String estado = (i <= pagadas) ? "PAGADA" : "PENDIENTE";
-                JLabel lblEst = crearCelda(estado);
-                if (estado.equals("PAGADA")) {
-                    lblEst.setForeground(new Color(22, 163, 74));
-                    lblEst.setFont(new Font("Segoe UI", Font.BOLD, 10));
-                } else {
-                    lblEst.setForeground(new Color(220, 38, 38));
-                    lblEst.setFont(new Font("Segoe UI", Font.ITALIC, 10));
-                }
+                JLabel lblEst = crearCelda("PAGADA");
+                lblEst.setForeground(new Color(22, 163, 74));
+                lblEst.setFont(new Font("Segoe UI", Font.BOLD, 10));
                 tr.add(lblEst);
                 
                 tablaCuotas.add(tr);
+            }
+
+            // 2. Mostrar las cuotas pendientes restantes si el historial es menor al total de cuotas y hay saldo
+            int pendingCount = totales - paidCount;
+            if (pendingCount > 0 && saldoPendientePlan > 0.001) {
+                double valorCuotaPendiente = saldoPendientePlan / pendingCount;
+                double saldoAcumulado = saldoPendientePlan;
+
+                for (int i = 1; i <= pendingCount; i++) {
+                    JPanel tr = new JPanel(new GridLayout(1, 4));
+                    tr.setOpaque(false);
+                    tr.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(243, 244, 246)));
+                    
+                    tr.add(crearCelda("Cuota #" + (paidCount + i)));
+                    tr.add(crearCelda(currencyFormat.format(valorCuotaPendiente)));
+                    
+                    saldoAcumulado -= valorCuotaPendiente;
+                    if (saldoAcumulado < 0) saldoAcumulado = 0;
+                    tr.add(crearCelda(currencyFormat.format(saldoAcumulado)));
+                    
+                    JLabel lblEst = crearCelda("PENDIENTE");
+                    lblEst.setForeground(new Color(220, 38, 38));
+                    lblEst.setFont(new Font("Segoe UI", Font.ITALIC, 10));
+                    tr.add(lblEst);
+                    
+                    tablaCuotas.add(tr);
+                }
             }
             content.add(tablaCuotas);
         }

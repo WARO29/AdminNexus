@@ -66,11 +66,11 @@ public class Dashboard extends JFrame {
 
         // Establecer el icono de la aplicación
         try {
-            java.net.URL iconURL = getClass().getResource("/assets/adminnexus.png");
+            java.net.URL iconURL = getClass().getResource("/assets/adminnexus_icons_pract.png");
             if (iconURL != null) {
                 setIconImage(new ImageIcon(iconURL).getImage());
             } else {
-                setIconImage(new ImageIcon("src/assets/adminnexus.png").getImage());
+                setIconImage(new ImageIcon("src/assets/adminnexus_icons_pract.png").getImage());
             }
         } catch (Exception e) {
             System.err.println("No se pudo cargar el icono de la aplicación");

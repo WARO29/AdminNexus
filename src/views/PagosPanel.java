@@ -354,7 +354,7 @@ public class PagosPanel extends JPanel {
         modeloTabla = new DefaultTableModel(cols, 0) {
             @Override
             public boolean isCellEditable(int row, int col) { 
-                return col == 8 || col == 9 || col == 10 || col == 11; 
+                return col == 9 || col == 10 || col == 11; 
             }
         };
 
@@ -454,15 +454,6 @@ public class PagosPanel extends JPanel {
                     JCheckBox chk = (JCheckBox) value;
                     chk.setBackground(isSelected ? COLOR_SELECTION : COLOR_CARD);
                     return chk;
-                }
-                if (value instanceof String && value.equals("APLICADO")) {
-                    JLabel lbl = new JLabel("✓ Bloqueado");
-                    lbl.setOpaque(true);
-                    lbl.setBackground(isSelected ? COLOR_SELECTION : COLOR_CARD);
-                    lbl.setForeground(COLOR_SUCCESS);
-                    lbl.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-                    lbl.setHorizontalAlignment(SwingConstants.CENTER);
-                    return lbl;
                 }
                 return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
             }
@@ -629,25 +620,51 @@ public class PagosPanel extends JPanel {
         int idEstudiante = (int) modeloTabla.getValueAt(row, 10);
         String nombre = modeloTabla.getValueAt(row, 0).toString().replaceAll("<[^>]*>", " ").trim();
         
-        String input = JOptionPane.showInputDialog(this, 
-            "Ingrese el porcentaje de descuento para:\n" + nombre, 
-            "Aplicar Descuento", JOptionPane.QUESTION_MESSAGE);
+        // Obtener el descuento actual del estudiante
+        String descPctStr = modeloTabla.getValueAt(row, 7).toString();
+        double pctActual = 0.0;
+        if (!descPctStr.equals("-")) {
+            try {
+                pctActual = Double.parseDouble(descPctStr.replace("%", "").trim());
+            } catch (NumberFormatException e) {
+                // Silencioso, asumimos 0.0 si falla al convertir
+            }
+        }
+
+        String mensajePrompt;
+        if (pctActual > 0.001) {
+            mensajePrompt = "El estudiante " + nombre + " ya cuenta con un descuento de " + pctActual + "%.\n"
+                    + "Ingrese el nuevo porcentaje de descuento (0 para eliminarlo/quitarlo):";
+        } else {
+            mensajePrompt = "Ingrese el porcentaje de descuento (1-100) para aplicar a:\n" + nombre;
+        }
+
+        String input = JOptionPane.showInputDialog(this, mensajePrompt, "Gestionar Descuento", JOptionPane.QUESTION_MESSAGE);
             
         if (input != null && !input.trim().isEmpty()) {
             try {
                 double porcentaje = Double.parseDouble(input);
                 if (porcentaje < 0 || porcentaje > 100) {
-                    throw new NumberFormatException();
+                    JOptionPane.showMessageDialog(this, 
+                        "Por favor ingrese un porcentaje válido entre 0 y 100.", 
+                        "Error de Rango", JOptionPane.ERROR_MESSAGE);
+                    return;
                 }
                 
                 if (pagosController.aplicarDescuento(idEstudiante, porcentaje)) {
-                    JOptionPane.showMessageDialog(this, "Descuento aplicado correctamente.");
+                    if (porcentaje <= 0.001) {
+                        JOptionPane.showMessageDialog(this, "Descuento eliminado correctamente.");
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Descuento actualizado correctamente.");
+                    }
                     refrescarDatos();
                 } else {
-                    JOptionPane.showMessageDialog(this, "No se pudo aplicar el descuento.", "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "No se pudo actualizar el descuento.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (NumberFormatException e) {
-                JOptionPane.showMessageDialog(this, "Por favor ingrese un porcentaje válido (0-100).", "Error de Formato", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, 
+                    "El valor ingresado no es un número válido. Por favor, ingrese un porcentaje entre 0 y 100.", 
+                    "Error de Formato", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
@@ -670,8 +687,9 @@ public class PagosPanel extends JPanel {
             double pct = pctObj != null ? (double) pctObj : 0.0;
             
             JCheckBox chk = null;
-            if (!aplicado) {
+            if (row.get("id_estudiante") != null) {
                 chk = new JCheckBox();
+                chk.setSelected(aplicado);
                 chk.setHorizontalAlignment(SwingConstants.CENTER);
                 chk.setBackground(COLOR_CARD);
                 chk.setOpaque(false);
@@ -718,7 +736,7 @@ public class PagosPanel extends JPanel {
                 ultimo,
                 proximo,
                 aplicado ? (pct + "%") : "-",
-                aplicado ? "APLICADO" : (row.get("id_estudiante") != null ? chk : "-"),
+                chk != null ? chk : "-",
                 "ACCIONES",
                 row.get("id_estudiante"),
                 row.get("saldo_pendiente") != null ? row.get("saldo_pendiente") : 0.0
@@ -779,17 +797,6 @@ public class PagosPanel extends JPanel {
         btnNext.setForeground(paginaActual < totalPaginas ? COLOR_TEXT : COLOR_TEXT_MUTED);
     }
 
-    private void abrirGeneradorOrdenPago(int idEstudiante) {
-        Map<String, Object> data = pagosController.obtenerDetalleFinancieroEstudiante(idEstudiante);
-        if (data == null) {
-            JOptionPane.showMessageDialog(this, "No se encontró información financiera para este estudiante.", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        Window owner = SwingUtilities.getWindowAncestor(this);
-        OrdenPagoDialog dlg = new OrdenPagoDialog(owner, data);
-        dlg.setVisible(true);
-    }
 
     private void abrirPerfilEstudiante(int row) {
         int idEstudiante = (int) modeloTabla.getValueAt(row, 10);
@@ -841,7 +848,6 @@ public class PagosPanel extends JPanel {
 
     class AccionesCellRenderer extends JPanel implements javax.swing.table.TableCellRenderer {
         private JButton btnRegistrar;
-        private JButton btnRecibo;
         private JButton btnPreferencial;
         private JButton btnAnular;
         
@@ -854,12 +860,6 @@ public class PagosPanel extends JPanel {
             btnRegistrar.setBackground(new Color(59, 130, 246));
             btnRegistrar.setToolTipText("Registrar Pago");
             btnRegistrar.setBorderPainted(false);
-            
-            btnRecibo = new JButton(crearIconoImpresora());
-            btnRecibo.setPreferredSize(new Dimension(28, 28));
-            btnRecibo.setBackground(new Color(16, 185, 129)); // Verde
-            btnRecibo.setToolTipText("Generar Orden de Pago / Recibo");
-            btnRecibo.setBorderPainted(false);
             
             btnPreferencial = new JButton(crearIconoPreferencial());
             btnPreferencial.setPreferredSize(new Dimension(28, 28));
@@ -874,7 +874,6 @@ public class PagosPanel extends JPanel {
             btnAnular.setBorderPainted(false);
             
             add(btnRegistrar);
-            add(btnRecibo);
             add(btnPreferencial);
             add(btnAnular);
         }
@@ -892,9 +891,6 @@ public class PagosPanel extends JPanel {
             btnRegistrar.setEnabled(!isPagado);
             btnRegistrar.setBackground(isPagado ? Color.GRAY : new Color(59, 130, 246));
             
-            btnRecibo.setEnabled(!isPagado);
-            btnRecibo.setBackground(isPagado ? Color.GRAY : new Color(16, 185, 129));
-            
             btnPreferencial.setEnabled(!isPagado);
             btnPreferencial.setBackground(isPagado ? Color.GRAY : new Color(139, 92, 246));
             
@@ -905,7 +901,6 @@ public class PagosPanel extends JPanel {
     class AccionesCellEditor extends AbstractCellEditor implements javax.swing.table.TableCellEditor {
         private JPanel panel;
         private JButton btnRegistrar;
-        private JButton btnRecibo;
         private JButton btnPreferencial;
         private JButton btnAnular;
         private int filaActual;
@@ -928,16 +923,6 @@ public class PagosPanel extends JPanel {
                 if (dlg.isSuccess()) {
                     refrescarDatos();
                 }
-                fireEditingStopped();
-            });
-            
-            btnRecibo = new JButton(crearIconoImpresora());
-            btnRecibo.setPreferredSize(new Dimension(28, 28));
-            btnRecibo.setBackground(new Color(16, 185, 129));
-            btnRecibo.setToolTipText("Generar Orden de Pago / Recibo");
-            btnRecibo.addActionListener(e -> {
-                int idEstudiante = (int) modeloTabla.getValueAt(filaActual, 10);
-                abrirGeneradorOrdenPago(idEstudiante);
                 fireEditingStopped();
             });
             
@@ -966,7 +951,6 @@ public class PagosPanel extends JPanel {
             });
             
             panel.add(btnRegistrar);
-            panel.add(btnRecibo);
             panel.add(btnPreferencial);
             panel.add(btnAnular);
         }
@@ -985,9 +969,6 @@ public class PagosPanel extends JPanel {
             
             btnRegistrar.setEnabled(!isPagado);
             btnRegistrar.setBackground(isPagado ? Color.GRAY : new Color(59, 130, 246));
-            
-            btnRecibo.setEnabled(!isPagado);
-            btnRecibo.setBackground(isPagado ? Color.GRAY : new Color(16, 185, 129));
             
             btnPreferencial.setEnabled(!isPagado);
             btnPreferencial.setBackground(isPagado ? Color.GRAY : new Color(139, 92, 246));

@@ -156,8 +156,8 @@ public class PerfilPagoEstudiantePanel extends JPanel {
         subInfo.setBounds(230, 250, 600, 20);
 
         // Botón Atrás
-        JButton btnBack = new JButton("← Volver al Dashboard");
-        btnBack.setBounds(30, 30, 180, 30);
+        JButton btnBack = new JButton("← Volver a gestión de pago");
+        btnBack.setBounds(30, 30, 220, 30);
         btnBack.setFocusPainted(false);
         btnBack.addActionListener(e -> {
             Window w = SwingUtilities.getWindowAncestor(this);

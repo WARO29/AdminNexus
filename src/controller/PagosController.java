@@ -462,32 +462,72 @@ public class PagosController {
         }
     }
 
-    /**
-     * Aplica un descuento a un plan de pago existente.
-     */
     public boolean aplicarDescuento(int idEstudiante, double porcentaje) {
         double montoBase = 500000.00;
+        double totalPagado = 0.0;
+
+        // 1. Obtener el monto_base actual del plan de pago del estudiante
+        String sqlSelect = "SELECT monto_base FROM planes_pago WHERE id_estudiante = ?";
+        try (Connection conn = Database.getConexion();
+             PreparedStatement pstmt = conn.prepareStatement(sqlSelect)) {
+            pstmt.setInt(1, idEstudiante);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    montoBase = rs.getDouble("monto_base");
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al consultar monto base: " + e.getMessage());
+        }
+
+        // 2. Consultar el total pagado por el estudiante (suma de pagos realizados)
+        String sqlPagos = "SELECT COALESCE(SUM(monto), 0) as total_pagado FROM pagos_realizados WHERE id_estudiante = ?";
+        try (Connection conn = Database.getConexion();
+             PreparedStatement pstmt = conn.prepareStatement(sqlPagos)) {
+            pstmt.setInt(1, idEstudiante);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    totalPagado = rs.getDouble("total_pagado");
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al consultar total pagado: " + e.getMessage());
+        }
+
+        // 3. Calcular los nuevos valores según el nuevo descuento
         double factor = (100.0 - porcentaje) / 100.0;
         double montoFinal = montoBase * factor;
-        
-        String sql = "UPDATE planes_pago SET " +
+        double saldoPendiente = montoFinal - totalPagado;
+        if (saldoPendiente < 0) {
+            saldoPendiente = 0;
+        }
+
+        boolean descuentoAplicado = porcentaje > 0.001;
+
+        // 4. Actualizar el plan de pago
+        String sqlUpdate = "UPDATE planes_pago SET " +
               "descuento_porcentaje = ?, " +
-              "descuento_aplicado = TRUE, " +
+              "descuento_aplicado = ?, " +
               "monto_final = ?, " +
-              "saldo_pendiente = ? " +
-              "WHERE id_estudiante = ? AND descuento_aplicado = FALSE";
+              "saldo_pendiente = ?, " +
+              "estado = CASE WHEN ? <= 0.001 THEN 'AL_DIA' ELSE estado END, " +
+              "fecha_proximo_pago = CASE WHEN ? <= 0.001 THEN NULL ELSE fecha_proximo_pago END " +
+              "WHERE id_estudiante = ?";
 
         try (Connection conn = Database.getConexion();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sqlUpdate)) {
             
             pstmt.setDouble(1, porcentaje);
-            pstmt.setDouble(2, montoFinal);
+            pstmt.setBoolean(2, descuentoAplicado);
             pstmt.setDouble(3, montoFinal);
-            pstmt.setInt(4, idEstudiante);
+            pstmt.setDouble(4, saldoPendiente);
+            pstmt.setDouble(5, saldoPendiente);
+            pstmt.setDouble(6, saldoPendiente);
+            pstmt.setInt(7, idEstudiante);
             
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
-            System.err.println("Error al aplicar descuento: " + e.getMessage());
+            System.err.println("Error al aplicar/modificar descuento: " + e.getMessage());
             return false;
         }
     }
