@@ -53,9 +53,9 @@ public class PagosController {
                 }
             }
 
-            // 4. Actualizar tipos de modalidad en pagos_realizados para soportar nuevos tipos
+            // 4. Actualizar tipos de modalidad en pagos_realizados para soportar todos los tipos del modelo
             try (Statement stmt = conn.createStatement()) {
-                stmt.execute("ALTER TABLE pagos_realizados MODIFY COLUMN modalidad ENUM('ABONO', 'ABONO_SABADO', 'ABONO_SEMANA', 'CUOTA_MENSUAL') NOT NULL");
+                stmt.execute("ALTER TABLE pagos_realizados MODIFY COLUMN modalidad ENUM('ABONO_SABADO','ABONO_SEMANA','CUOTA_MENSUAL','CARRERA_TOTAL','MEDIA_CARRERA') NOT NULL");
             } catch (SQLException e) {
                 // Manejo silencioso si falla el MODIFY
             }
@@ -67,6 +67,24 @@ public class PagosController {
                         stmt.execute("ALTER TABLE pagos_realizados ADD COLUMN comprobante_ruta VARCHAR(255) AFTER comprobante");
                     }
                 }
+            }
+
+            // 7. Verificar columnas de anulación en pagos_realizados
+            try (ResultSet rs = metaData.getColumns(null, null, "pagos_realizados", "anulado")) {
+                if (!rs.next()) {
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.execute("ALTER TABLE pagos_realizados ADD COLUMN anulado BOOLEAN DEFAULT FALSE");
+                        stmt.execute("ALTER TABLE pagos_realizados ADD COLUMN fecha_anulacion TIMESTAMP NULL");
+                        stmt.execute("ALTER TABLE pagos_realizados ADD COLUMN motivo_anulacion VARCHAR(255) NULL");
+                    }
+                }
+            }
+
+            // 8. Actualizar tipo de estado en planes_pago para soportar CON_SALDO
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE planes_pago MODIFY COLUMN estado ENUM('AL_DIA', 'POR_VENCER', 'ATRASADO', 'CON_SALDO') DEFAULT 'AL_DIA'");
+            } catch (SQLException e) {
+                // Manejo silencioso si falla el MODIFY
             }
             
         } catch (SQLException e) {
@@ -104,6 +122,7 @@ public class PagosController {
      * Obtiene el conteo de estudiantes por estado de pago.
      */
     public Map<String, Integer> obtenerConteoPorEstado() {
+        actualizarEstadosAutomaticos();
         Map<String, Integer> conteo = new HashMap<>();
         String sql = "SELECT estado, COUNT(*) as cantidad FROM planes_pago GROUP BY estado";
 
@@ -281,10 +300,10 @@ public class PagosController {
      */
     public void actualizarEstadosAutomaticos() {
         String sql = "UPDATE planes_pago SET estado = CASE " +
-                     "WHEN fecha_proximo_pago IS NULL THEN 'AL_DIA' " +
+                     "WHEN fecha_proximo_pago IS NULL THEN 'CON_SALDO' " +
                      "WHEN fecha_proximo_pago < CURRENT_DATE THEN 'ATRASADO' " +
                      "WHEN DATEDIFF(fecha_proximo_pago, CURRENT_DATE) <= 2 THEN 'POR_VENCER' " +
-                     "ELSE 'AL_DIA' END " +
+                     "ELSE 'CON_SALDO' END " +
                      "WHERE saldo_pendiente > 0";
 
         try (Connection conn = Database.getConexion();
@@ -298,6 +317,7 @@ public class PagosController {
      * Obtiene el detalle financiero de un estudiante específico.
      */
     public Map<String, Object> obtenerDetalleFinancieroEstudiante(int idEstudiante) {
+        actualizarEstadosAutomaticos();
         String sql = "SELECT e.*, CONCAT(e.nombre, ' ', e.apellido) as nombre_completo, p.nombre as programa_nombre, " +
                      "pp.monto_final, pp.saldo_pendiente, pp.estado, pp.cuotas_totales, pp.cuotas_pagadas, pp.fecha_proximo_pago, pp.fecha_ultimo_pago " +
                      "FROM estudiantes e " +
@@ -336,11 +356,11 @@ public class PagosController {
      */
     public List<Map<String, Object>> obtenerHistorialEstudiante(int idEstudiante) {
         List<Map<String, Object>> historial = new ArrayList<>();
-        String sql = "SELECT * FROM pagos_realizados WHERE id_estudiante = ? ORDER BY fecha DESC";
+        String sql = "SELECT * FROM pagos_realizados WHERE id_estudiante = ? AND (anulado = FALSE OR anulado IS NULL) ORDER BY fecha DESC";
 
         try (Connection conn = Database.getConexion();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+
             pstmt.setInt(1, idEstudiante);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
@@ -359,6 +379,122 @@ public class PagosController {
             System.err.println("Error al obtener historial: " + e.getMessage());
         }
         return historial;
+    }
+
+    /**
+     * Obtiene pagos no anulados de un estudiante para mostrar en el diálogo de anulación.
+     */
+    public List<Map<String, Object>> obtenerPagosAnulables(int idEstudiante) {
+        List<Map<String, Object>> pagos = new ArrayList<>();
+        String sql = "SELECT id_pago, monto, fecha, modalidad, metodo_pago, comprobante, saldo_restante " +
+                     "FROM pagos_realizados WHERE id_estudiante = ? AND (anulado = FALSE OR anulado IS NULL) ORDER BY fecha DESC";
+
+        try (Connection conn = Database.getConexion();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idEstudiante);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> p = new HashMap<>();
+                    p.put("id_pago", rs.getInt("id_pago"));
+                    p.put("monto", rs.getDouble("monto"));
+                    p.put("fecha", rs.getTimestamp("fecha"));
+                    p.put("modalidad", rs.getString("modalidad"));
+                    p.put("metodo", rs.getString("metodo_pago"));
+                    p.put("comprobante", rs.getString("comprobante"));
+                    p.put("saldo_restante", rs.getDouble("saldo_restante"));
+                    pagos.add(p);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al obtener pagos anulables: " + e.getMessage());
+        }
+        return pagos;
+    }
+
+    /**
+     * Anula un pago y revierte el plan de pago del estudiante de forma transaccional.
+     */
+    public boolean anularPago(int idPago, int idEstudiante, int idUsuario, String motivo, String ip) {
+        Connection conn = null;
+        try {
+            conn = Database.getConexion();
+            conn.setAutoCommit(false);
+
+            // 1. Obtener el monto del pago a anular (validar que exista y no esté anulado)
+            double montoAnulado = 0;
+            String sqlPago = "SELECT monto FROM pagos_realizados WHERE id_pago = ? AND id_estudiante = ? AND (anulado = FALSE OR anulado IS NULL)";
+            try (PreparedStatement ps = conn.prepareStatement(sqlPago)) {
+                ps.setInt(1, idPago);
+                ps.setInt(2, idEstudiante);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        montoAnulado = rs.getDouble("monto");
+                    } else {
+                        throw new SQLException("El pago no existe o ya fue anulado.");
+                    }
+                }
+            }
+
+            // 2. Marcar el pago como anulado
+            String sqlAnular = "UPDATE pagos_realizados SET anulado = TRUE, fecha_anulacion = NOW(), motivo_anulacion = ? " +
+                               "WHERE id_pago = ? AND id_estudiante = ?";
+            try (PreparedStatement ps = conn.prepareStatement(sqlAnular)) {
+                ps.setString(1, motivo);
+                ps.setInt(2, idPago);
+                ps.setInt(3, idEstudiante);
+                ps.executeUpdate();
+            }
+
+            // 3. Restaurar el plan de pago del estudiante
+            String sqlRestaurar = "UPDATE planes_pago SET " +
+                "saldo_pendiente = saldo_pendiente + ?, " +
+                "cuotas_pagadas = GREATEST(0, cuotas_pagadas - 1), " +
+                "fecha_ultimo_pago = (" +
+                "  SELECT DATE(fecha) FROM pagos_realizados " +
+                "  WHERE id_estudiante = ? AND (anulado = FALSE OR anulado IS NULL) ORDER BY fecha DESC LIMIT 1" +
+                ") " +
+                "WHERE id_estudiante = ?";
+            try (PreparedStatement ps = conn.prepareStatement(sqlRestaurar)) {
+                ps.setDouble(1, montoAnulado);
+                ps.setInt(2, idEstudiante);
+                ps.setInt(3, idEstudiante);
+                ps.executeUpdate();
+            }
+
+            // 4. Registrar en auditoría
+            String sqlAudit = "INSERT INTO logs_auditoria_financiera (idusuario, accion, detalle, ip_dispositivo) VALUES (?, ?, ?, ?)";
+            try (PreparedStatement ps = conn.prepareStatement(sqlAudit)) {
+                ps.setInt(1, idUsuario);
+                ps.setString(2, "ANULACION_PAGO");
+                java.text.NumberFormat fmt = java.text.NumberFormat.getCurrencyInstance(java.util.Locale.forLanguageTag("es-CO"));
+                ps.setString(3, "Pago id=" + idPago + " de " + fmt.format(montoAnulado) + " anulado. Motivo: " + motivo);
+                ps.setString(4, ip);
+                ps.executeUpdate();
+            }
+
+            conn.commit();
+
+            // 5. Recalcular estado automático
+            actualizarEstadosAutomaticos();
+
+            new ActividadController().registrarActividad(
+                "Pago anulado. Monto revertido al saldo del estudiante.",
+                model.Actividad.TipoActividad.PAGO
+            );
+
+            return true;
+
+        } catch (SQLException e) {
+            System.err.println("Error al anular pago: " + e.getMessage());
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
+            }
+            return false;
+        } finally {
+            if (conn != null) {
+                try { conn.setAutoCommit(true); conn.close(); } catch (SQLException e) { e.printStackTrace(); }
+            }
+        }
     }
     /**
      * Cuenta cuántos estudiantes no tienen un plan de pago asignado.

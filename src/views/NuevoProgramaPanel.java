@@ -33,6 +33,7 @@ public class NuevoProgramaPanel extends JPanel {
     private JTextField txtCodigo, txtNombre, txtColorHex;
     private JSpinner spinnerDuracion, spinnerProyeccion;
     private JComboBox<String> comboEstado;
+    private JCheckBox cbPlanEstudios, cbDocentesBase;
     
     // Modo edición
     private Programa programaEditar = null;
@@ -321,15 +322,12 @@ public class NuevoProgramaPanel extends JPanel {
 
         // Estado
         gbc.gridy = 1;
-        gbc.insets = new Insets(0, 0, 20, 0);
+        gbc.insets = new Insets(0, 0, 0, 0);
         comboEstado = new JComboBox<>(new String[]{"Activo (Visible para matricula)", "Cerrado", "En Pausa"});
         content.add(crearLabeledCombo("Estado del Programa", comboEstado), gbc);
 
-        // Color
-        gbc.gridy = 2;
-        gbc.insets = new Insets(0, 0, 0, 0);
+        // Color (campo oculto; se guarda con valor predeterminado)
         txtColorHex = new JTextField("#005DB5");
-        content.add(crearLabeledColorField("Color Distintivo (Hex)", txtColorHex), gbc);
 
         card.add(content, BorderLayout.CENTER);
         return card;
@@ -382,20 +380,17 @@ public class NuevoProgramaPanel extends JPanel {
         body.add(info);
         body.add(Box.createVerticalStrut(10));
 
-        String[] reqs = {
-            "Plan de estudios aprobado por comité",
-            "Registro calificado MinEducación",
-            "Docentes base asignados",
-            "Presupuesto inicial cargado"
-        };
+        cbPlanEstudios = new JCheckBox("Plan de estudios aprobado por comité");
+        cbPlanEstudios.setOpaque(false);
+        cbPlanEstudios.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        cbPlanEstudios.setForeground(prefs.get("app_mode", "light").equals("dark") ? COLOR_TEXT : new Color(30, 64, 175));
+        body.add(cbPlanEstudios);
 
-        for (String req : reqs) {
-            JCheckBox cb = new JCheckBox(req);
-            cb.setOpaque(false);
-            cb.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-            cb.setForeground(prefs.get("app_mode", "light").equals("dark") ? COLOR_TEXT : new Color(30, 64, 175));
-            body.add(cb);
-        }
+        cbDocentesBase = new JCheckBox("Docentes base asignados");
+        cbDocentesBase.setOpaque(false);
+        cbDocentesBase.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        cbDocentesBase.setForeground(prefs.get("app_mode", "light").equals("dark") ? COLOR_TEXT : new Color(30, 64, 175));
+        body.add(cbDocentesBase);
 
         card.add(body, BorderLayout.CENTER);
         return card;
@@ -677,7 +672,17 @@ public class NuevoProgramaPanel extends JPanel {
         String nombre = txtNombre.getText().trim();
         
         if (codigo.isEmpty() || nombre.isEmpty() || nombre.startsWith("Ej.")) {
-            JOptionPane.showMessageDialog(this, "Por favor complete los campos obligatorios", "Validación", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Por favor complete los campos obligatorios.", "Validación", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (programaEditar == null && (!cbPlanEstudios.isSelected() || !cbDocentesBase.isSelected())) {
+            JOptionPane.showMessageDialog(this,
+                "<html>Para registrar el programa debe confirmar los requisitos previos:<br><br>"
+                + (!cbPlanEstudios.isSelected() ? "• Plan de estudios aprobado por comité<br>" : "")
+                + (!cbDocentesBase.isSelected() ? "• Docentes base asignados" : "")
+                + "</html>",
+                "Requisitos Incompletos", JOptionPane.WARNING_MESSAGE);
             return;
         }
 

@@ -1,23 +1,18 @@
 package views;
 
 import controller.PagosController;
-import controller.PagoService;
 import model.Usuario;
-import model.PagoRealizado;
+import javax.swing.Icon;
 import javax.swing.JPanel;
 import javax.swing.JLabel;
 import javax.swing.JButton;
 import javax.swing.JScrollPane;
-import javax.swing.JSeparator;
-import javax.swing.SwingConstants;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.JTextField;
-import javax.swing.JComboBox;
-import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
+import java.awt.Component;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -30,7 +25,6 @@ import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.awt.Window;
-import java.awt.geom.Ellipse2D;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.List;
@@ -156,15 +150,40 @@ public class PerfilPagoEstudiantePanel extends JPanel {
         subInfo.setBounds(230, 250, 600, 20);
 
         // Botón Atrás
-        JButton btnBack = new JButton("← Volver a gestión de pago");
-        btnBack.setBounds(30, 30, 220, 30);
+        JButton btnBack = new JButton("← Volver");
+        btnBack.setBounds(30, 30, 130, 34);
         btnBack.setFocusPainted(false);
         btnBack.addActionListener(e -> {
             Window w = SwingUtilities.getWindowAncestor(this);
             if (w instanceof Dashboard) ((Dashboard) w).abrirPagos();
         });
 
+        // Botón Registrar Pago (header)
+        double saldoHeader = data.get("saldo") != null ? (double) data.get("saldo") : 0;
+        boolean headerPagado = saldoHeader <= 0.001;
+
+        JButton btnPagarHeader = new JButton("+ Registrar Pago");
+        btnPagarHeader.setBounds(170, 30, 160, 34);
+        btnPagarHeader.setBackground(headerPagado ? Color.GRAY : COLOR_PRIMARY);
+        btnPagarHeader.setForeground(Color.WHITE);
+        btnPagarHeader.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnPagarHeader.setFocusPainted(false);
+        btnPagarHeader.setEnabled(!headerPagado);
+        btnPagarHeader.addActionListener(e -> abrirDialogoRegistroPago(false));
+
+        // Botón Pago Preferencial (header)
+        JButton btnPreferencialHeader = new JButton("Preferencial", crearIconoEstrella());
+        btnPreferencialHeader.setBounds(340, 30, 165, 34);
+        btnPreferencialHeader.setBackground(headerPagado ? Color.GRAY : new Color(139, 92, 246));
+        btnPreferencialHeader.setForeground(Color.WHITE);
+        btnPreferencialHeader.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnPreferencialHeader.setFocusPainted(false);
+        btnPreferencialHeader.setEnabled(!headerPagado);
+        btnPreferencialHeader.addActionListener(e -> abrirDialogoRegistroPago(true));
+
         header.add(btnBack);
+        header.add(btnPagarHeader);
+        header.add(btnPreferencialHeader);
         header.add(avatar);
         header.add(name);
         header.add(subInfo);
@@ -285,27 +304,42 @@ public class PerfilPagoEstudiantePanel extends JPanel {
                 new EmptyBorder(20, 20, 20, 20)
         ));
 
-        JButton btnPago = new JButton("+ Registrar Nuevo Pago");
-        btnPago.setBackground(COLOR_PRIMARY);
+        Object saldoObj = data.get("saldo");
+        boolean isPagado = saldoObj instanceof Number && ((Number) saldoObj).doubleValue() <= 0.001;
+
+        JLabel lblAcciones = new JLabel("Acciones Rápidas");
+        lblAcciones.setFont(FONT_SECTION);
+        lblAcciones.setForeground(COLOR_TEXT);
+        widget.add(lblAcciones);
+
+        JButton btnPago = new JButton("+ Registrar Pago");
+        btnPago.setBackground(isPagado ? Color.GRAY : COLOR_PRIMARY);
         btnPago.setForeground(Color.WHITE);
         btnPago.setFont(FONT_BOLD);
         btnPago.setFocusPainted(false);
         btnPago.setPreferredSize(new Dimension(0, 40));
-        btnPago.addActionListener(e -> abrirDialogoRegistroPago());
-        
-        Object saldoObj = data.get("saldo");
-        boolean isPagado = false;
-        if (saldoObj instanceof Number) {
-            isPagado = ((Number) saldoObj).doubleValue() <= 0.001;
-        }
-        
         btnPago.setEnabled(!isPagado);
+        btnPago.addActionListener(e -> abrirDialogoRegistroPago(false));
+
+        JButton btnPreferencial = new JButton("Pago Preferencial", crearIconoEstrella());
+        btnPreferencial.setBackground(isPagado ? Color.GRAY : new Color(139, 92, 246));
+        btnPreferencial.setForeground(Color.WHITE);
+        btnPreferencial.setFont(FONT_BOLD);
+        btnPreferencial.setFocusPainted(false);
+        btnPreferencial.setPreferredSize(new Dimension(0, 40));
+        btnPreferencial.setEnabled(!isPagado);
+        btnPreferencial.addActionListener(e -> abrirDialogoRegistroPago(true));
+
         if (isPagado) {
-            btnPago.setBackground(Color.GRAY);
-            btnPago.setText("Pagos Completados");
+            JLabel lblPaz = new JLabel("✓ Pagos completados");
+            lblPaz.setFont(FONT_BOLD);
+            lblPaz.setForeground(new Color(22, 163, 74));
+            widget.add(lblPaz);
+        } else {
+            widget.add(btnPago);
+            widget.add(btnPreferencial);
         }
 
-        widget.add(btnPago);
         return widget;
     }
 
@@ -359,15 +393,32 @@ public class PerfilPagoEstudiantePanel extends JPanel {
         return item;
     }
 
-    private void abrirDialogoRegistroPago() {
-        RegistroPagoDialog dlg = new RegistroPagoDialog(SwingUtilities.getWindowAncestor(this), usuarioActual, idEstudiante);
+    private Icon crearIconoEstrella() {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.translate(x, y);
+                int[] xp = {14, 18, 25, 19, 21, 14, 7, 9, 3, 10};
+                int[] yp = {4, 12, 12, 17, 24, 19, 24, 17, 12, 12};
+                g2.fillPolygon(xp, yp, 10);
+                g2.dispose();
+            }
+            @Override public int getIconWidth()  { return 28; }
+            @Override public int getIconHeight() { return 28; }
+        };
+    }
+
+    private void abrirDialogoRegistroPago(boolean preferencial) {
+        Window owner = SwingUtilities.getWindowAncestor(this);
+        RegistroPagoDialog dlg = new RegistroPagoDialog(owner, usuarioActual, idEstudiante, preferencial);
         dlg.setVisible(true);
-        
+
         if (dlg.isSuccess()) {
-            // Recargar Panel para mostrar el nuevo pago en el timeline y actualizar balance
-            Window w = SwingUtilities.getWindowAncestor(this);
-            if (w instanceof Dashboard) {
-                ((Dashboard) w).cargarPanel(new PerfilPagoEstudiantePanel(usuarioActual, idEstudiante));
+            if (owner instanceof Dashboard) {
+                ((Dashboard) owner).cargarPanel(new PerfilPagoEstudiantePanel(usuarioActual, idEstudiante));
             }
         }
     }

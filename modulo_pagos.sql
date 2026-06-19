@@ -16,7 +16,7 @@ CREATE TABLE planes_pago (
     saldo_pendiente DECIMAL(10, 2) NOT NULL,
     cuotas_totales INT NOT NULL DEFAULT 5,
     cuotas_pagadas INT DEFAULT 0,
-    estado ENUM('AL_DIA', 'POR_VENCER', 'ATRASADO') DEFAULT 'AL_DIA',
+    estado ENUM('AL_DIA', 'POR_VENCER', 'ATRASADO', 'CON_SALDO') DEFAULT 'AL_DIA',
     fecha_proximo_pago DATE,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

@@ -13,6 +13,7 @@ import javax.swing.JOptionPane;
 import javax.swing.border.EmptyBorder;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -24,6 +25,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
 import javax.swing.BorderFactory;
+import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
+import java.awt.print.*;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import controller.PagosController;
 
 /**
@@ -55,18 +61,22 @@ public class ReciboPagoDialog extends JDialog {
         main.setBorder(new EmptyBorder(25, 35, 25, 35));
 
         // Header (Logotipo y Título)
-        JPanel header = new JPanel(new GridLayout(0, 1, 0, 5));
+        JPanel header = new JPanel();
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
         header.setOpaque(false);
-        
+
         JLabel lblLogo = new JLabel("ADMIN NEXUS", SwingConstants.CENTER);
         lblLogo.setFont(new Font("Segoe UI", Font.BOLD, 26));
         lblLogo.setForeground(new Color(26, 86, 219));
-        
+        lblLogo.setAlignmentX(Component.CENTER_ALIGNMENT);
+
         JLabel lblTitle = new JLabel("COMPROBANTE ELECTRÓNICO DE PAGO", SwingConstants.CENTER);
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 12));
         lblTitle.setForeground(Color.GRAY);
-        
+        lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+
         header.add(lblLogo);
+        header.add(Box.createVerticalStrut(4));
         header.add(lblTitle);
         header.add(Box.createVerticalStrut(20));
 
@@ -82,7 +92,9 @@ public class ReciboPagoDialog extends JDialog {
         content.add(crearFila("Fecha de Pago:", pago.getFecha() != null ? pago.getFecha().format(dateFormat) : "N/A"));
         
         content.add(Box.createVerticalStrut(15));
-        content.add(new JSeparator());
+        JSeparator sep = new JSeparator();
+        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
+        content.add(sep);
         content.add(Box.createVerticalStrut(15));
 
         // Sección Detalle del Pago Actual
@@ -94,6 +106,7 @@ public class ReciboPagoDialog extends JDialog {
         JPanel montoPanel = new JPanel(new BorderLayout());
         montoPanel.setOpaque(false);
         montoPanel.setBorder(new EmptyBorder(10, 0, 10, 0));
+        montoPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         JLabel lblMontoTxt = new JLabel("VALOR RECIBIDO:");
         lblMontoTxt.setFont(FONT_BOLD);
         JLabel lblMontoVal = new JLabel(currencyFormat.format(pago.getMonto()));
@@ -119,6 +132,7 @@ public class ReciboPagoDialog extends JDialog {
 
             JPanel tablaCuotas = new JPanel(new GridLayout(0, 1));
             tablaCuotas.setOpaque(false);
+            tablaCuotas.setAlignmentX(Component.LEFT_ALIGNMENT);
             
             // Header de tabla (4 columnas)
             JPanel th = new JPanel(new GridLayout(1, 4));
@@ -195,17 +209,19 @@ public class ReciboPagoDialog extends JDialog {
             lblDisc.setFont(new Font("Segoe UI", Font.BOLD | Font.ITALIC, 11));
             lblDisc.setForeground(new Color(29, 78, 216));
             discPanel.add(lblDisc);
+            discPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
             content.add(discPanel);
         }
 
         content.add(Box.createVerticalStrut(20));
         content.add(crearFila("Saldo Restante Final:", currencyFormat.format(pago.getSaldoRestante())));
-        
-        content.add(Box.createVerticalGlue());
-        
+
+        content.add(Box.createVerticalStrut(25));
+
         JLabel lblFooter = new JLabel("<html><center>AdminNexus ERP - Sistema de Gestión Institucional<br>Copia para el Estudiante - Validez legal institucional</center></html>", SwingConstants.CENTER);
         lblFooter.setFont(new Font("Segoe UI", Font.ITALIC, 10));
         lblFooter.setForeground(Color.GRAY);
+        lblFooter.setAlignmentX(Component.CENTER_ALIGNMENT);
         content.add(lblFooter);
 
         // Buttons
@@ -218,6 +234,7 @@ public class ReciboPagoDialog extends JDialog {
         btnPrint.setForeground(Color.WHITE);
         btnPrint.setFont(FONT_BOLD);
         btnPrint.setPreferredSize(new Dimension(140, 38));
+        btnPrint.addActionListener(e -> imprimirRecibo(nombreEstudiante, content));
         
         JButton btnClose = new JButton("Cerrar");
         btnClose.setPreferredSize(new Dimension(100, 38));
@@ -226,11 +243,67 @@ public class ReciboPagoDialog extends JDialog {
         buttons.add(btnClose);
         buttons.add(btnPrint);
 
+        JScrollPane scrollPane = new JScrollPane(content);
+        scrollPane.setBorder(null);
+        scrollPane.getViewport().setBackground(COLOR_BG);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+
         main.add(header, BorderLayout.NORTH);
-        main.add(content, BorderLayout.CENTER);
+        main.add(scrollPane, BorderLayout.CENTER);
         main.add(buttons, BorderLayout.SOUTH);
 
         add(main);
+    }
+
+    private void imprimirRecibo(String nombreEstudiante, JPanel panelAImprimir) {
+        // Forzar layout completo antes de medir
+        panelAImprimir.revalidate();
+        panelAImprimir.doLayout();
+        java.awt.Dimension preferred = panelAImprimir.getPreferredSize();
+        final int panelW = preferred.width > 0 ? preferred.width : Math.max(panelAImprimir.getWidth(), 400);
+        final int panelH = preferred.height > 0 ? preferred.height : Math.max(panelAImprimir.getHeight(), 600);
+
+        PrinterJob job = PrinterJob.getPrinterJob();
+        job.setJobName("Recibo de Pago - " + nombreEstudiante);
+
+        // Usar el formato de página predeterminado del sistema (A4 o Carta según la región)
+        PageFormat pf = job.defaultPage();
+
+        job.setPrintable((graphics, pageFormat, pageIndex) -> {
+            double imgW = pageFormat.getImageableWidth();
+            double imgH = pageFormat.getImageableHeight();
+            double scale = imgW / panelW;
+            int totalPages = (int) Math.ceil((panelH * scale) / imgH);
+
+            if (pageIndex >= totalPages) return Printable.NO_SUCH_PAGE;
+
+            Graphics2D g2 = (Graphics2D) graphics;
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+            g2.translate(pageFormat.getImageableX(), pageFormat.getImageableY());
+            g2.scale(scale, scale);
+
+            // Desplazar verticalmente para la página actual
+            double offsetY = pageIndex * (imgH / scale);
+            g2.translate(0, -offsetY);
+
+            // Recortar para no sangrar contenido de otras páginas
+            g2.setClip(0, (int) offsetY, panelW, (int) Math.ceil(imgH / scale));
+
+            panelAImprimir.printAll(g2);
+
+            return Printable.PAGE_EXISTS;
+        }, pf);
+
+        if (job.printDialog()) {
+            try {
+                job.print();
+                JOptionPane.showMessageDialog(this, "Recibo enviado a la cola de impresión con éxito.", "Impresión Exitosa", JOptionPane.INFORMATION_MESSAGE);
+            } catch (PrinterException ex) {
+                JOptionPane.showMessageDialog(this, "Error al imprimir el recibo: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 
     private JLabel crearSeccionHeader(String text) {
@@ -238,6 +311,7 @@ public class ReciboPagoDialog extends JDialog {
         l.setFont(new Font("Segoe UI", Font.BOLD, 10));
         l.setForeground(new Color(107, 114, 128));
         l.setBorder(new EmptyBorder(10, 0, 5, 0));
+        l.setAlignmentX(Component.LEFT_ALIGNMENT);
         return l;
     }
 
@@ -260,7 +334,8 @@ public class ReciboPagoDialog extends JDialog {
     private JPanel crearFila(String label, String value) {
         JPanel p = new JPanel(new BorderLayout());
         p.setOpaque(false);
-        p.setMaximumSize(new Dimension(500, 30));
+        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+        p.setAlignmentX(Component.LEFT_ALIGNMENT);
         
         JLabel lbl = new JLabel(label);
         lbl.setFont(FONT_MAIN);

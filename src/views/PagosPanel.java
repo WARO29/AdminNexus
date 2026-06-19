@@ -821,6 +821,9 @@ public class PagosPanel extends JPanel {
             if (estado.equals("AL_DIA") || estado.equals("PAGADO")) {
                 label.setBackground(new Color(220, 252, 231));
                 label.setForeground(new Color(22, 163, 74));
+            } else if (estado.equals("CON_SALDO")) {
+                label.setBackground(new Color(219, 234, 254));
+                label.setForeground(new Color(26, 86, 219));
             } else if (estado.equals("POR_VENCER")) {
                 label.setBackground(new Color(254, 243, 199));
                 label.setForeground(new Color(180, 83, 9));
@@ -890,10 +893,16 @@ public class PagosPanel extends JPanel {
             
             btnRegistrar.setEnabled(!isPagado);
             btnRegistrar.setBackground(isPagado ? Color.GRAY : new Color(59, 130, 246));
-            
+
             btnPreferencial.setEnabled(!isPagado);
             btnPreferencial.setBackground(isPagado ? Color.GRAY : new Color(139, 92, 246));
-            
+
+            Object cuotasObjR = table.getModel().getValueAt(table.convertRowIndexToModel(row), 3);
+            boolean sinPagosR = cuotasObjR == null || cuotasObjR.toString().startsWith("0/");
+            boolean deshabAnularR = sinPagosR || isPagado;
+            btnAnular.setEnabled(!deshabAnularR);
+            btnAnular.setBackground(deshabAnularR ? Color.GRAY : new Color(239, 68, 68));
+
             return this;
         }
     }
@@ -946,7 +955,13 @@ public class PagosPanel extends JPanel {
             btnAnular.setBackground(new Color(239, 68, 68));
             btnAnular.setToolTipText("Anular / Cancelar Pago");
             btnAnular.addActionListener(e -> {
-                JOptionPane.showMessageDialog(null, "Funcionalidad de anulación próximamente.");
+                int idEstudiante = (int) modeloTabla.getValueAt(filaActual, 10);
+                Window owner = SwingUtilities.getWindowAncestor(table);
+                AnularPagoDialog dlg = new AnularPagoDialog(owner, usuarioActual, idEstudiante);
+                dlg.setVisible(true);
+                if (dlg.isSuccess()) {
+                    refrescarDatos();
+                }
                 fireEditingStopped();
             });
             
@@ -969,10 +984,17 @@ public class PagosPanel extends JPanel {
             
             btnRegistrar.setEnabled(!isPagado);
             btnRegistrar.setBackground(isPagado ? Color.GRAY : new Color(59, 130, 246));
-            
+
             btnPreferencial.setEnabled(!isPagado);
             btnPreferencial.setBackground(isPagado ? Color.GRAY : new Color(139, 92, 246));
-            
+
+            // Habilitar anular solo si hay pagos Y el estudiante no está al día (saldo > 0)
+            Object cuotasObj = table.getModel().getValueAt(table.convertRowIndexToModel(row), 3);
+            boolean sinPagos = cuotasObj == null || cuotasObj.toString().startsWith("0/");
+            boolean deshabAnular = sinPagos || isPagado;
+            btnAnular.setEnabled(!deshabAnular);
+            btnAnular.setBackground(deshabAnular ? Color.GRAY : new Color(239, 68, 68));
+
             return panel;
         }
         
@@ -1107,6 +1129,7 @@ public class PagosPanel extends JPanel {
         private Color getColorForEstado(String estado) {
             switch (estado) {
                 case "AL_DIA": return COLOR_SUCCESS;
+                case "CON_SALDO": return new Color(59, 130, 246);
                 case "POR_VENCER": return COLOR_WARNING;
                 case "ATRASADO": return COLOR_DANGER;
                 default: return COLOR_TEXT_MUTED;

@@ -59,6 +59,7 @@ public class Dashboard extends JFrame {
                 .node("User_" + usuario.getIdusuario());
         setTitle("AdminNexus - Dashboard");
         setSize(1200, 800);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE); // Manejamos el cierre manualmente
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
@@ -794,23 +795,30 @@ public class Dashboard extends JFrame {
 
         int ultimaLimpiada = prefs.getInt("ultima_actividad_limpiada_" + usuarioActual.getIdusuario(), -1);
         ActividadController actividadController = new ActividadController();
-        List<Actividad> todasActividades = actividadController.obtenerActividadesRecientes(15);
+        List<Actividad> todasActividades = actividadController.obtenerActividadesRecientes(5);
         todasActividades.removeIf(a -> a.getIdActividad() <= ultimaLimpiada);
 
         List<Actividad> actividades = todasActividades.size() > 5 ? todasActividades.subList(0, 5) : todasActividades;
 
+        JPanel listaPanel = new JPanel(new GridLayout(0, 1));
+        listaPanel.setBackground(Color.WHITE);
+
         if (actividades.isEmpty()) {
-            JMenuItem emptyItem = new JMenuItem("No hay notificaciones recientes");
-            emptyItem.setEnabled(false);
-            emptyItem.setBackground(Color.WHITE);
-            emptyItem.setFont(FONT_MAIN);
-            popup.add(emptyItem);
+            JLabel emptyLbl = new JLabel("No hay notificaciones recientes");
+            emptyLbl.setFont(FONT_MAIN);
+            emptyLbl.setForeground(new Color(107, 114, 128));
+            emptyLbl.setBorder(new EmptyBorder(14, 15, 14, 15));
+            listaPanel.add(emptyLbl);
         } else {
             SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-            for (Actividad act : actividades) {
+            for (int i = 0; i < actividades.size(); i++) {
+                Actividad act = actividades.get(i);
                 JPanel itemPanel = new JPanel(new BorderLayout(10, 5));
                 itemPanel.setBackground(Color.WHITE);
-                itemPanel.setBorder(new EmptyBorder(10, 15, 10, 15));
+                itemPanel.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(229, 231, 235)),
+                    new EmptyBorder(10, 15, 10, 15)
+                ));
 
                 JLabel lblDesc = new JLabel(
                         "<html><div style='width:250px;'>" + act.getDescripcion() + "</div></html>");
@@ -822,11 +830,17 @@ public class Dashboard extends JFrame {
 
                 itemPanel.add(lblDesc, BorderLayout.CENTER);
                 itemPanel.add(lblFecha, BorderLayout.SOUTH);
-
-                popup.add(itemPanel);
-                popup.addSeparator();
+                listaPanel.add(itemPanel);
             }
         }
+
+        JScrollPane scroll = new JScrollPane(listaPanel,
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setBorder(null);
+        scroll.setPreferredSize(new Dimension(340, 220));
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+        popup.add(scroll);
 
         // Mostrar debajo de la campanita alineado a la derecha
         popup.show(invoker, invoker.getWidth() - popup.getPreferredSize().width, invoker.getHeight() + 10);

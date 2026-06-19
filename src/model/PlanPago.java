@@ -23,7 +23,8 @@ public class PlanPago {
     public enum EstadoPago {
         AL_DIA("Al día"),
         POR_VENCER("Por vencer"),
-        ATRASADO("Atrasado");
+        ATRASADO("Atrasado"),
+        CON_SALDO("Con saldo");
 
         private final String nombre;
 

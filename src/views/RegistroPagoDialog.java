@@ -55,7 +55,7 @@ public class RegistroPagoDialog extends JDialog {
         initData();
         initComponents();
         
-        setSize(480, esPreferencial ? 620 : 750);
+        setSize(440, esPreferencial ? 565 : 590);
         setLocationRelativeTo(owner);
     }
 
@@ -75,27 +75,28 @@ public class RegistroPagoDialog extends JDialog {
     private void initComponents() {
         JPanel main = new JPanel(new BorderLayout());
         main.setBackground(COLOR_BG);
-        main.setBorder(new EmptyBorder(30, 40, 30, 40));
+        main.setBorder(new EmptyBorder(18, 28, 18, 28));
 
         // Header
         JPanel header = new JPanel(new GridLayout(0, 1, 0, 5));
         header.setOpaque(false);
         
         JLabel lblTitle = new JLabel("Registrar Transacción");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblTitle.setForeground(COLOR_PRIMARY);
         
         JLabel lblSub = new JLabel("Estudiante: " + (dataEstudiante != null ? dataEstudiante.get("nombre") : "Desconocido"));
-        lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblSub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblSub.setForeground(COLOR_TEXT);
         
         header.add(lblTitle);
         header.add(lblSub);
-        header.add(Box.createVerticalStrut(15));
+        header.add(Box.createVerticalStrut(6));
 
         // Formulario
-        JPanel form = new JPanel(new GridLayout(0, 1, 0, 15));
+        JPanel form = new JPanel(new GridLayout(0, 1, 0, 6));
         form.setOpaque(false);
+        form.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
 
         // Lógica de cuotas sugerida
         double saldoPendiente = dataEstudiante != null ? (double) dataEstudiante.get("saldo") : 0;
@@ -106,12 +107,49 @@ public class RegistroPagoDialog extends JDialog {
         cbModalidad = new JComboBox<>(PagoRealizado.ModalidadPago.values());
         estilizarCombo(cbModalidad, "Modalidad de Cobro");
 
-        String[] metodos = {"Cuenta Bancaria", "Nequi", "Daviplata", "Dale", "Nubank", "Otras Cuentas / Plataformas", "Efectivo"};
+        String[] metodos = {"Bancolombia", "Nequi", "Efectivo"};
         cbMetodo = new JComboBox<>(metodos);
         estilizarCombo(cbMetodo, "Método de Pago");
 
-        int siguienteCuota = dataEstudiante != null ? ((int) dataEstudiante.get("cuotas_pagadas") + 1) : 1;
+        int cuotasPagadas = dataEstudiante != null ? (int) dataEstudiante.get("cuotas_pagadas") : 0;
+        int cuotasTotales = dataEstudiante != null ? (int) dataEstudiante.get("cuotas_totales") : 5;
+        int siguienteCuota = Math.min(cuotasPagadas + 1, cuotasTotales);
         txtCuota = crearCampoTexto(String.valueOf(siguienteCuota), "Número de Cuota");
+
+        // Panel de datos bancarios (visible según método seleccionado)
+        JPanel panelInfoBanco = new JPanel(new BorderLayout());
+        panelInfoBanco.setBackground(new Color(239, 246, 255));
+        panelInfoBanco.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(191, 219, 254)),
+            new EmptyBorder(10, 14, 10, 14)
+        ));
+        JLabel lblInfoBanco = new JLabel();
+        lblInfoBanco.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblInfoBanco.setForeground(new Color(30, 64, 175));
+        panelInfoBanco.add(lblInfoBanco, BorderLayout.CENTER);
+
+        Runnable actualizarInfoBanco = () -> {
+            String metodo = cbMetodo.getSelectedItem() != null ? cbMetodo.getSelectedItem().toString() : "";
+            switch (metodo) {
+                case "Bancolombia":
+                    lblInfoBanco.setText("<html><b>Cuenta Bancolombia</b><br>"
+                        + "Entidad Técnica al Servicio Técnico de Formación<br>"
+                        + "N° de cuenta: <b>526-000079-88</b></html>");
+                    panelInfoBanco.setVisible(true);
+                    break;
+                case "Nequi":
+                    lblInfoBanco.setText("<html><b>Nequi</b><br>"
+                        + "Yulibeth Illidge<br>"
+                        + "Número: <b>301 347 4891</b></html>");
+                    panelInfoBanco.setVisible(true);
+                    break;
+                default:
+                    panelInfoBanco.setVisible(false);
+                    break;
+            }
+        };
+        actualizarInfoBanco.run();
+        cbMetodo.addActionListener(e -> actualizarInfoBanco.run());
 
         form.add(crearLabel("MONTO A PAGAR"));
         form.add(txtMonto);
@@ -137,7 +175,7 @@ public class RegistroPagoDialog extends JDialog {
             }));
             
             btnSubir = new JButton("Seleccionar Archivo (PDF, Imagen)");
-            btnSubir.setPreferredSize(new Dimension(220, 40));
+            btnSubir.setPreferredSize(new Dimension(200, 34));
             btnSubir.setCursor(new Cursor(Cursor.HAND_CURSOR));
             btnSubir.addActionListener(e -> seleccionarArchivo());
             
@@ -208,7 +246,7 @@ public class RegistroPagoDialog extends JDialog {
         // Footer Informativo
         JPanel infoFooter = new JPanel(new BorderLayout());
         infoFooter.setOpaque(false);
-        infoFooter.setBorder(new EmptyBorder(20, 0, 0, 0));
+        infoFooter.setBorder(new EmptyBorder(10, 0, 0, 0));
         JLabel lblSaldo = new JLabel("Saldo pendiente tras este pago: Calculando...");
         lblSaldo.setFont(new Font("Segoe UI", Font.ITALIC, 12));
         lblSaldo.setForeground(COLOR_TEXT);
@@ -251,7 +289,7 @@ public class RegistroPagoDialog extends JDialog {
         // Botones
         JPanel buttons = new JPanel(new GridLayout(1, 2, 15, 0));
         buttons.setOpaque(false);
-        buttons.setBorder(new EmptyBorder(30, 0, 0, 0));
+        buttons.setBorder(new EmptyBorder(14, 0, 0, 0));
         
         JButton btnCancelar = new JButton("Cancelar");
         btnCancelar.addActionListener(e -> dispose());
@@ -259,15 +297,25 @@ public class RegistroPagoDialog extends JDialog {
         JButton btnConfirmar = new JButton("Confirmar Pago");
         btnConfirmar.setBackground(COLOR_PRIMARY);
         btnConfirmar.setForeground(Color.WHITE);
-        btnConfirmar.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnConfirmar.setFont(new Font("Segoe UI", Font.BOLD, 13));
         btnConfirmar.addActionListener(e -> procesarPago());
 
         buttons.add(btnCancelar);
         buttons.add(btnConfirmar);
 
+        // Wrapper BoxLayout: form + panelInfoBanco
+        // BoxLayout respeta visibilidad: panelInfoBanco no ocupa espacio cuando está oculto
+        panelInfoBanco.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        panelInfoBanco.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
+        JPanel centerWrapper = new JPanel();
+        centerWrapper.setLayout(new BoxLayout(centerWrapper, BoxLayout.Y_AXIS));
+        centerWrapper.setOpaque(false);
+        centerWrapper.add(form);
+        centerWrapper.add(panelInfoBanco);
+
         main.add(header, BorderLayout.NORTH);
-        main.add(form, BorderLayout.CENTER);
-        
+        main.add(centerWrapper, BorderLayout.CENTER);
+
         JPanel southPanel = new JPanel(new BorderLayout());
         southPanel.setOpaque(false);
         southPanel.add(infoFooter, BorderLayout.NORTH);
@@ -291,23 +339,23 @@ public class RegistroPagoDialog extends JDialog {
 
     private JTextField crearCampoTexto(String value, String hint) {
         JTextField tf = new JTextField(value);
-        tf.setPreferredSize(new Dimension(0, 45));
+        tf.setPreferredSize(new Dimension(0, 34));
         tf.setBackground(COLOR_BG);
         tf.setForeground(COLOR_TEXT);
         tf.setCaretColor(COLOR_PRIMARY);
-        tf.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        tf.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         tf.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(COLOR_BORDER, 1),
-            new EmptyBorder(0, 15, 0, 15)
+            new EmptyBorder(0, 10, 0, 10)
         ));
         return tf;
     }
 
     private void estilizarCombo(JComboBox<?> cb, String title) {
-        cb.setPreferredSize(new Dimension(0, 45));
+        cb.setPreferredSize(new Dimension(0, 34));
         cb.setBackground(COLOR_BG);
         cb.setForeground(COLOR_TEXT);
-        cb.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        cb.setFont(new Font("Segoe UI", Font.PLAIN, 13));
     }
 
     private void seleccionarArchivo() {
