@@ -50,6 +50,7 @@ public class NuevoProgramaPanel extends JPanel {
         this.programaEditar = programa;
         this.prefs = java.util.prefs.Preferences.userRoot().node("AdminNexus").node("Config").node("User_" + usuario.getIdusuario());
         this.programaController = new ProgramaController();
+        this.programaController.setNombreUsuario(usuario.getNombreAdmin());
         cargarConfiguracion();
 
         setLayout(new BorderLayout());

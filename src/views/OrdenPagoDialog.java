@@ -23,7 +23,7 @@ public class OrdenPagoDialog extends JDialog {
 
     private final Map<String, Object> dataEstudiante;
     private JComboBox<Integer> comboCuota;
-    private final NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(new Locale("es", "CO"));
+    private final NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(Locale.of("es", "CO"));
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public OrdenPagoDialog(Window owner, Map<String, Object> data) {

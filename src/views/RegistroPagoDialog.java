@@ -22,7 +22,7 @@ public class RegistroPagoDialog extends JDialog {
     private Color COLOR_PRIMARY = new Color(26, 86, 219);
     private Color COLOR_BORDER = new Color(229, 231, 235);
 
-    private NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(new Locale("es", "CO"));
+    private NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(Locale.of("es", "CO"));
     
     private JTextField txtMonto;
     private JComboBox<PagoRealizado.ModalidadPago> cbModalidad;
@@ -267,21 +267,7 @@ public class RegistroPagoDialog extends JDialog {
             }
         };
 
-        // Escuchar cambios en el documento para actualización en tiempo real (teclado, copiar/pegar, programmatico)
-        txtMonto.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                actualizarSaldo.run();
-            }
-            @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                actualizarSaldo.run();
-            }
-            @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                actualizarSaldo.run();
-            }
-        });
+        txtMonto.getDocument().addDocumentListener(new SaldoDocumentListener(actualizarSaldo));
 
         // Inicializar el saldo de inmediato
         actualizarSaldo.run();
@@ -422,7 +408,7 @@ public class RegistroPagoDialog extends JDialog {
             }
 
             PagoService service = new PagoService();
-            if (service.registrarPagoTransaccional(pago, usuarioActual.getIdusuario(), "Localhost")) {
+            if (service.registrarPagoTransaccional(pago, usuarioActual.getIdusuario(), "Localhost", usuarioActual.getNombreAdmin())) {
                 success = true;
                 
                 // Mostrar recibo
@@ -449,5 +435,13 @@ public class RegistroPagoDialog extends JDialog {
 
     public boolean isSuccess() {
         return success;
+    }
+
+    private static class SaldoDocumentListener implements javax.swing.event.DocumentListener {
+        private final Runnable callback;
+        SaldoDocumentListener(Runnable cb) { this.callback = cb; }
+        public void insertUpdate(javax.swing.event.DocumentEvent e) { callback.run(); }
+        public void removeUpdate(javax.swing.event.DocumentEvent e) { callback.run(); }
+        public void changedUpdate(javax.swing.event.DocumentEvent e) { callback.run(); }
     }
 }

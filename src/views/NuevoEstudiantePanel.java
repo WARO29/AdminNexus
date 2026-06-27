@@ -40,6 +40,7 @@ public class NuevoEstudiantePanel extends JPanel {
     
     private EstudianteController estudianteController;
     private ProgramaController programaController;
+    private boolean guardandoEnProceso = false;
     private JTextField txtCodigo, txtNombre, txtApellido, txtEmail, txtTelefono, txtDireccion;
     private ModernDatePicker dpFechaNac, dpFechaMatricula;
     private JComboBox<String> comboPrograma, comboEstado;
@@ -59,6 +60,7 @@ public class NuevoEstudiantePanel extends JPanel {
         this.estudianteEditar = estudiante;
         this.prefs = java.util.prefs.Preferences.userRoot().node("AdminNexus").node("Config").node("User_" + usuario.getIdusuario());
         this.estudianteController = new EstudianteController();
+        this.estudianteController.setNombreUsuario(usuario.getNombreAdmin());
         this.programaController = new ProgramaController();
         
         cargarConfiguracion();
@@ -574,6 +576,8 @@ public class NuevoEstudiantePanel extends JPanel {
     }
 
     private void guardarEstudiante() {
+        if (guardandoEnProceso) return;
+        guardandoEnProceso = true;
         try {
             // Validaciones básicas
             String nombre = txtNombre.getText().trim();
@@ -655,6 +659,8 @@ public class NuevoEstudiantePanel extends JPanel {
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             ex.printStackTrace();
+        } finally {
+            guardandoEnProceso = false;
         }
     }
 
@@ -929,7 +935,7 @@ public class NuevoEstudiantePanel extends JPanel {
 
         private void showDays() {
             mainGrid.setLayout(new GridLayout(0, 7, 2, 2));
-            String month = displayDate.getMonth().getDisplayName(TextStyle.FULL, new Locale("es", "ES"));
+            String month = displayDate.getMonth().getDisplayName(TextStyle.FULL, Locale.of("es", "ES"));
             lblHeader.setText(month.substring(0, 1).toUpperCase() + month.substring(1) + " " + displayDate.getYear());
 
             String[] dayNames = {"Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"};

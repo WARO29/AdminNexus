@@ -77,20 +77,35 @@ public class AutenticacionController {
      * @return true si se creó exitosamente, false en caso contrario
      */
     public boolean crearUsuario(Usuario usuario) {
-        String sql = "INSERT INTO usuarios (nombre_admin, user, password, rol) VALUES (?, ?, ?, ?)";
+        return crearUsuarioConError(usuario) == null;
+    }
+
+    /**
+     * Crea un nuevo usuario. Retorna null si exitoso, o el mensaje de error descriptivo.
+     */
+    public String crearUsuarioConError(Usuario usuario) {
+        String sql = "INSERT INTO usuarios (idusuario, nombre_admin, user, password, rol) VALUES (?, ?, ?, ?, ?)";
 
         try (Connection conn = Database.getConexion();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, usuario.getNombreAdmin());
-            pstmt.setString(2, usuario.getUser());
-            pstmt.setString(3, usuario.getPassword());
-            pstmt.setString(4, usuario.getRol().name().toLowerCase());
+            pstmt.setInt(1, usuario.getIdusuario());
+            pstmt.setString(2, usuario.getNombreAdmin());
+            pstmt.setString(3, usuario.getUser());
+            pstmt.setString(4, usuario.getPassword());
+            pstmt.setString(5, usuario.getRol().name().toLowerCase());
 
-            return pstmt.executeUpdate() > 0;
+            pstmt.executeUpdate();
+            return null; // éxito
         } catch (SQLException e) {
             System.err.println("Error al crear usuario: " + e.getMessage());
-            return false;
+            String msg = e.getMessage();
+            if (msg != null && msg.toLowerCase().contains("duplicate")) {
+                if (msg.contains("user")) return "El nombre de usuario ya está en uso.";
+                if (msg.contains("idusuario") || msg.contains("primary")) return "Ya existe un usuario con ese número de identificación.";
+                return "Ya existe un registro con esos datos.";
+            }
+            return "Error al guardar: " + msg;
         }
     }
 
@@ -129,16 +144,25 @@ public class AutenticacionController {
      * @return true si se actualizó exitosamente
      */
     public boolean actualizarUsuario(Usuario usuario) {
-        String sql = "UPDATE usuarios SET nombre_admin = ?, user = ?, password = ?, rol = ? WHERE idusuario = ?";
+        // Si password es null o vacía, no se actualiza
+        boolean cambiarPassword = usuario.getPassword() != null && !usuario.getPassword().isEmpty();
+        String sql = cambiarPassword
+            ? "UPDATE usuarios SET nombre_admin = ?, user = ?, password = ?, rol = ? WHERE idusuario = ?"
+            : "UPDATE usuarios SET nombre_admin = ?, user = ?, rol = ? WHERE idusuario = ?";
 
         try (Connection conn = Database.getConexion();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, usuario.getNombreAdmin());
             pstmt.setString(2, usuario.getUser());
-            pstmt.setString(3, usuario.getPassword());
-            pstmt.setString(4, usuario.getRol().name().toLowerCase());
-            pstmt.setInt(5, usuario.getIdusuario());
+            if (cambiarPassword) {
+                pstmt.setString(3, usuario.getPassword());
+                pstmt.setString(4, usuario.getRol().name().toLowerCase());
+                pstmt.setInt(5, usuario.getIdusuario());
+            } else {
+                pstmt.setString(3, usuario.getRol().name().toLowerCase());
+                pstmt.setInt(4, usuario.getIdusuario());
+            }
 
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {

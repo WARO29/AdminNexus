@@ -23,7 +23,7 @@ public class PagoService {
      * @param ipDispositivo IP o nombre del dispositivo para auditoría
      * @return true si la transacción fue exitosa, false en caso contrario
      */
-    public boolean registrarPagoTransaccional(PagoRealizado pago, int idUsuario, String ipDispositivo) {
+    public boolean registrarPagoTransaccional(PagoRealizado pago, int idUsuario, String ipDispositivo, String nombreUsuario) {
         Connection conn = null;
         try {
             conn = Database.getConexion();
@@ -149,7 +149,7 @@ public class PagoService {
             }
 
             // 3. Insertar el Pago Realizado (id_estudiante)
-            String sqlInsertPago = "INSERT INTO pagos_realizados (id_estudiante, monto, modalidad, metodo_pago, comprobante, saldo_restante, comprobante_ruta) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String sqlInsertPago = "INSERT INTO pagos_realizados (id_estudiante, monto, modalidad, metodo_pago, comprobante, saldo_restante, comprobante_ruta, nombre_usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement psPago = conn.prepareStatement(sqlInsertPago)) {
                 psPago.setInt(1, pago.getEstudianteId());
                 psPago.setDouble(2, pago.getMonto());
@@ -158,6 +158,7 @@ public class PagoService {
                 psPago.setString(5, pago.getComprobante());
                 psPago.setDouble(6, nuevoSaldo);
                 psPago.setString(7, pago.getComprobanteRuta());
+                psPago.setString(8, nombreUsuario);
                 psPago.executeUpdate();
             }
 
@@ -194,9 +195,10 @@ public class PagoService {
             
             // 6. Registrar Actividad para Notificaciones (Campanita)
             new ActividadController().registrarActividad(
-                "Pago recibido: " + java.text.NumberFormat.getCurrencyInstance(new java.util.Locale("es", "CO")).format(pago.getMonto()) + 
+                "Pago recibido: " + java.text.NumberFormat.getCurrencyInstance(java.util.Locale.of("es", "CO")).format(pago.getMonto()) +
                 " - Modalidad: " + pago.getModalidad().getNombre(),
-                model.Actividad.TipoActividad.PAGO
+                model.Actividad.TipoActividad.PAGO,
+                nombreUsuario
             );
             
             return true;

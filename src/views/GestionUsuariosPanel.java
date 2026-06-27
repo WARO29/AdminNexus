@@ -129,7 +129,7 @@ public class GestionUsuariosPanel extends JPanel {
         
         // Header con estilo moderno
         tablaUsuarios.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
-        tablaUsuarios.getTableHeader().setBackground(COLOR_BG);
+        tablaUsuarios.getTableHeader().setBackground(COLOR_TABLE_HEADER);
         tablaUsuarios.getTableHeader().setForeground(COLOR_TEXT_MUTED);
         tablaUsuarios.getTableHeader().setPreferredSize(new Dimension(0, 40));
         tablaUsuarios.getTableHeader().setReorderingAllowed(false);
@@ -217,81 +217,92 @@ public class GestionUsuariosPanel extends JPanel {
     private void mostrarDialogoNuevoUsuario() {
         Window window = SwingUtilities.getWindowAncestor(this);
         JDialog dialogo = new JDialog(window, "Nuevo Usuario", Dialog.ModalityType.APPLICATION_MODAL);
-        dialogo.setSize(450, 400);
+        dialogo.setSize(450, 450);
         dialogo.setLocationRelativeTo(this);
         dialogo.setLayout(new BorderLayout());
-        
+
         JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(COLOR_CARD_BG);
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(5, 5, 5, 5);
-        
-        // Campos del formulario
+        gbc.insets = new Insets(6, 5, 6, 5);
+        gbc.weightx = 1.0;
+
+        JTextField txtCedula      = new JTextField(20);
         JTextField txtNombreAdmin = new JTextField(20);
-        JTextField txtUser = new JTextField(20);
+        JTextField txtUser        = new JTextField(20);
         JPasswordField txtPassword = new JPasswordField(20);
-        JComboBox<String> comboRol = new JComboBox<>(new String[]{"usuario", "administrador"});
-        
-        // Agregar componentes
-        gbc.gridx = 0; gbc.gridy = 0;
-        panel.add(new JLabel("Nombre Completo:"), gbc);
-        gbc.gridx = 1;
-        panel.add(txtNombreAdmin, gbc);
-        
-        gbc.gridx = 0; gbc.gridy = 1;
-        panel.add(new JLabel("Nombre de Usuario:"), gbc);
-        gbc.gridx = 1;
-        panel.add(txtUser, gbc);
-        
-        gbc.gridx = 0; gbc.gridy = 2;
-        panel.add(new JLabel("Contraseña:"), gbc);
-        gbc.gridx = 1;
-        panel.add(txtPassword, gbc);
-        
-        gbc.gridx = 0; gbc.gridy = 3;
-        panel.add(new JLabel("Rol:"), gbc);
-        gbc.gridx = 1;
-        panel.add(comboRol, gbc);
-        
-        // Botones
+        JComboBox<String> comboRol = new JComboBox<>(new String[]{"Usuario", "Administrador"});
+
+        Object[][] campos = {
+            {"N° Identificación (Cédula):", txtCedula},
+            {"Nombre Completo:",            txtNombreAdmin},
+            {"Nombre de Usuario:",          txtUser},
+            {"Contraseña:",                 txtPassword},
+            {"Rol:",                        comboRol}
+        };
+
+        for (int i = 0; i < campos.length; i++) {
+            gbc.gridx = 0; gbc.gridy = i; gbc.weightx = 0;
+            JLabel lbl = new JLabel((String) campos[i][0]);
+            lbl.setForeground(COLOR_TEXT_DARK);
+            lbl.setFont(FONT_MAIN);
+            panel.add(lbl, gbc);
+            gbc.gridx = 1; gbc.weightx = 1.0;
+            panel.add((java.awt.Component) campos[i][1], gbc);
+        }
+
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton btnGuardar = new JButton("Guardar");
+        panelBotones.setBackground(COLOR_CARD_BG);
+        JButton btnGuardar  = new JButton("Guardar");
         JButton btnCancelar = new JButton("Cancelar");
-        
-        estilizarBoton(btnGuardar, COLOR_PRIMARY);
+        estilizarBoton(btnGuardar,  COLOR_PRIMARY);
         estilizarBoton(btnCancelar, new Color(107, 114, 128));
-        
+
         btnGuardar.addActionListener(e -> {
-            if (validarCampos(txtNombreAdmin, txtUser, txtPassword)) {
-                Usuario nuevoUsuario = new Usuario();
-                nuevoUsuario.setNombreAdmin(txtNombreAdmin.getText().trim());
-                nuevoUsuario.setUser(txtUser.getText().trim());
-                nuevoUsuario.setPassword(new String(txtPassword.getPassword()));
-                String rolSeleccionado = (String) comboRol.getSelectedItem();
-                nuevoUsuario.setRol(rolSeleccionado.equals("administrador") ? RolUsuario.ADMINISTRADOR : RolUsuario.USUARIO);
-                
-                if (autenticacionController.crearUsuario(nuevoUsuario)) {
-                    JOptionPane.showMessageDialog(dialogo, 
-                        "Usuario creado exitosamente", 
-                        "Éxito", 
-                        JOptionPane.INFORMATION_MESSAGE);
-                    cargarUsuarios();
-                    dialogo.dispose();
-                } else {
-                    JOptionPane.showMessageDialog(dialogo, 
-                        "Error al crear usuario. El nombre de usuario puede estar en uso.", 
-                        "Error", 
-                        JOptionPane.ERROR_MESSAGE);
-                }
+            // Validaciones
+            String cedulaStr = txtCedula.getText().trim();
+            if (cedulaStr.isEmpty()) {
+                JOptionPane.showMessageDialog(dialogo, "El número de identificación es obligatorio.", "Campo requerido", JOptionPane.WARNING_MESSAGE); return;
+            }
+            int cedula;
+            try { cedula = Integer.parseInt(cedulaStr); }
+            catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(dialogo, "El número de identificación debe ser numérico.", "Dato inválido", JOptionPane.WARNING_MESSAGE); return;
+            }
+            if (txtNombreAdmin.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(dialogo, "El nombre completo es obligatorio.", "Campo requerido", JOptionPane.WARNING_MESSAGE); return;
+            }
+            if (txtUser.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(dialogo, "El nombre de usuario es obligatorio.", "Campo requerido", JOptionPane.WARNING_MESSAGE); return;
+            }
+            if (txtPassword.getPassword().length == 0) {
+                JOptionPane.showMessageDialog(dialogo, "La contraseña es obligatoria.", "Campo requerido", JOptionPane.WARNING_MESSAGE); return;
+            }
+
+            Usuario nuevoUsuario = new Usuario();
+            nuevoUsuario.setIdusuario(cedula);
+            nuevoUsuario.setNombreAdmin(txtNombreAdmin.getText().trim());
+            nuevoUsuario.setUser(txtUser.getText().trim());
+            nuevoUsuario.setPassword(new String(txtPassword.getPassword()));
+            String rolSel = (String) comboRol.getSelectedItem();
+            nuevoUsuario.setRol("Administrador".equals(rolSel) ? RolUsuario.ADMINISTRADOR : RolUsuario.USUARIO);
+
+            String error = autenticacionController.crearUsuarioConError(nuevoUsuario);
+            if (error == null) {
+                JOptionPane.showMessageDialog(dialogo, "Usuario creado exitosamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                cargarUsuarios();
+                dialogo.dispose();
+            } else {
+                JOptionPane.showMessageDialog(dialogo, error, "Error al crear usuario", JOptionPane.ERROR_MESSAGE);
             }
         });
-        
+
         btnCancelar.addActionListener(e -> dialogo.dispose());
-        
         panelBotones.add(btnGuardar);
         panelBotones.add(btnCancelar);
-        
+
         dialogo.add(panel, BorderLayout.CENTER);
         dialogo.add(panelBotones, BorderLayout.SOUTH);
         dialogo.setVisible(true);
@@ -341,11 +352,19 @@ public class GestionUsuariosPanel extends JPanel {
         panel.add(txtUser, gbc);
         
         gbc.gridx = 0; gbc.gridy = 2;
-        panel.add(new JLabel("Nueva Contraseña (obligatorio):"), gbc);
+        JLabel lblPass = new JLabel("Nueva Contraseña:");
+        lblPass.setForeground(COLOR_TEXT_DARK);
+        panel.add(lblPass, gbc);
         gbc.gridx = 1;
         panel.add(txtPassword, gbc);
-        
-        gbc.gridx = 0; gbc.gridy = 3;
+
+        gbc.gridx = 1; gbc.gridy = 3;
+        JLabel lblPassHint = new JLabel("(dejar vacío para no cambiarla)");
+        lblPassHint.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblPassHint.setForeground(COLOR_TEXT_MUTED);
+        panel.add(lblPassHint, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 4;
         panel.add(new JLabel("Rol:"), gbc);
         gbc.gridx = 1;
         panel.add(comboRol, gbc);
@@ -359,42 +378,31 @@ public class GestionUsuariosPanel extends JPanel {
         
         btnGuardar.addActionListener(e -> {
             if (txtNombreAdmin.getText().trim().isEmpty() || txtUser.getText().trim().isEmpty()) {
-                JOptionPane.showMessageDialog(dialogo, 
-                    "Por favor complete todos los campos obligatorios", 
-                    "Campos incompletos", 
-                    JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(dialogo,
+                    "El nombre completo y el nombre de usuario son obligatorios.",
+                    "Campos incompletos", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            
+
             String nuevaPassword = new String(txtPassword.getPassword());
-            if (nuevaPassword.isEmpty()) {
-                JOptionPane.showMessageDialog(dialogo, 
-                    "Por favor ingrese la contraseña", 
-                    "Campo requerido", 
-                    JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            
+
             Usuario usuarioEditado = new Usuario();
             usuarioEditado.setIdusuario(idUsuario);
             usuarioEditado.setNombreAdmin(txtNombreAdmin.getText().trim());
             usuarioEditado.setUser(txtUser.getText().trim());
-            usuarioEditado.setPassword(nuevaPassword);
+            // Si dejó vacía la contraseña, pasa null para que el controller no la cambie
+            usuarioEditado.setPassword(nuevaPassword.isEmpty() ? null : nuevaPassword);
             String rolSeleccionado = (String) comboRol.getSelectedItem();
-            usuarioEditado.setRol(rolSeleccionado.equals("administrador") ? RolUsuario.ADMINISTRADOR : RolUsuario.USUARIO);
-            
+            usuarioEditado.setRol("Administrador".equals(rolSeleccionado) ? RolUsuario.ADMINISTRADOR : RolUsuario.USUARIO);
+
             if (autenticacionController.actualizarUsuario(usuarioEditado)) {
-                JOptionPane.showMessageDialog(dialogo, 
-                    "Usuario actualizado exitosamente", 
-                    "Éxito", 
-                    JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(dialogo,
+                    "Usuario actualizado exitosamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
                 cargarUsuarios();
                 dialogo.dispose();
             } else {
-                JOptionPane.showMessageDialog(dialogo, 
-                    "Error al actualizar usuario", 
-                    "Error", 
-                    JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialogo,
+                    "Error al actualizar el usuario.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
         
@@ -452,31 +460,4 @@ public class GestionUsuariosPanel extends JPanel {
         }
     }
     
-    private boolean validarCampos(JTextField txtNombreAdmin, JTextField txtUser, JPasswordField txtPassword) {
-        if (txtNombreAdmin.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, 
-                "El nombre completo es obligatorio", 
-                "Campo requerido", 
-                JOptionPane.WARNING_MESSAGE);
-            return false;
-        }
-        
-        if (txtUser.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, 
-                "El nombre de usuario es obligatorio", 
-                "Campo requerido", 
-                JOptionPane.WARNING_MESSAGE);
-            return false;
-        }
-        
-        if (txtPassword.getPassword().length == 0) {
-            JOptionPane.showMessageDialog(this, 
-                "La contraseña es obligatoria", 
-                "Campo requerido", 
-                JOptionPane.WARNING_MESSAGE);
-            return false;
-        }
-        
-        return true;
-    }
 }

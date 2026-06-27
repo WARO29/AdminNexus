@@ -44,7 +44,7 @@ public class PagosPanel extends JPanel {
     private PagosController pagosController;
     private DefaultTableModel modeloTabla;
     private JTable tablaPagos;
-    private NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(new Locale("es", "CO"));
+    private NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(Locale.of("es", "CO"));
     private java.text.SimpleDateFormat tableDateFormat = new java.text.SimpleDateFormat("dd/MM/yyyy");
 
     // Labels de resumen
@@ -353,8 +353,8 @@ public class PagosPanel extends JPanel {
         String[] cols = {"ESTUDIANTE", "MONTO TOTAL", "SALDO", "CUOTAS", "ESTADO", "ÚLTIMO PAGO", "SIG. PAGO", "DESC. %", "APLICAR", "ACCIONES", "ID", "SALDO_RAW"};
         modeloTabla = new DefaultTableModel(cols, 0) {
             @Override
-            public boolean isCellEditable(int row, int col) { 
-                return col == 9 || col == 10 || col == 11; 
+            public boolean isCellEditable(int row, int col) {
+                return false; // Acciones manejadas por MouseListener directo
             }
         };
 
@@ -434,7 +434,6 @@ public class PagosPanel extends JPanel {
         tablaPagos.getColumnModel().getColumn(0).setCellRenderer(new NombreEstudianteRenderer());
         tablaPagos.getColumnModel().getColumn(4).setCellRenderer(new EstadoPagoRenderer());
         tablaPagos.getColumnModel().getColumn(9).setCellRenderer(new AccionesCellRenderer());
-        tablaPagos.getColumnModel().getColumn(9).setCellEditor(new AccionesCellEditor());
         
         // Renderer para descuento
         tablaPagos.getColumnModel().getColumn(7).setCellRenderer(new DefaultTableCellRenderer() {
@@ -484,15 +483,54 @@ public class PagosPanel extends JPanel {
         ((DefaultTableCellRenderer)tablaPagos.getColumnModel().getColumn(5).getCellRenderer()).setHorizontalAlignment(SwingConstants.CENTER);
         ((DefaultTableCellRenderer)tablaPagos.getColumnModel().getColumn(6).getCellRenderer()).setHorizontalAlignment(SwingConstants.CENTER);
         
-        // Listener para abrir perfil (Ahora solo en columna 0)
+        // Listener principal: acciones, descuento y perfil con un solo clic
         tablaPagos.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 int row = tablaPagos.rowAtPoint(e.getPoint());
                 int col = tablaPagos.columnAtPoint(e.getPoint());
                 if (row == -1) return;
-                
-                if (col == 8) { // Columna APLICAR
+
+                if (col == 9) { // Columna ACCIONES
+                    Rectangle cellRect = tablaPagos.getCellRect(row, col, false);
+                    int relX = e.getX() - cellRect.x;
+                    int colW  = tablaPagos.getColumnModel().getColumn(col).getWidth();
+
+                    // 3 botones en FlowLayout CENTER (28px c/u, 5px gap): total=94px
+                    // leftOffset = (colW - 94) / 2
+                    int lo = Math.max((colW - 94) / 2, 0);
+                    // zonas: [lo, lo+28] [lo+33, lo+61] [lo+66, lo+94]
+                    // Detectamos por zona con margen de 4px entre botones
+                    int zona = -1;
+                    if (relX >= lo && relX < lo + 28)      zona = 0; // Registrar
+                    else if (relX >= lo+33 && relX < lo+61) zona = 1; // Preferencial
+                    else if (relX >= lo+66 && relX <= lo+94) zona = 2; // Anular
+
+                    if (zona < 0) return; // clic fuera de los botones
+
+                    int idEstudiante = (int) modeloTabla.getValueAt(row, 10);
+                    Object saldoRaw  = modeloTabla.getValueAt(row, 11);
+                    boolean pagado   = (saldoRaw instanceof Number)
+                                       && ((Number) saldoRaw).doubleValue() <= 0.001;
+                    Object cuotasVal = modeloTabla.getValueAt(row, 3);
+                    boolean sinPagos = cuotasVal == null
+                                       || cuotasVal.toString().startsWith("0/");
+                    Window owner = SwingUtilities.getWindowAncestor(tablaPagos);
+
+                    if (zona == 0 && !pagado) {
+                        RegistroPagoDialog dlg = new RegistroPagoDialog(owner, usuarioActual, idEstudiante);
+                        dlg.setVisible(true);
+                        if (dlg.isSuccess()) refrescarDatos();
+                    } else if (zona == 1 && !pagado) {
+                        RegistroPagoDialog dlg = new RegistroPagoDialog(owner, usuarioActual, idEstudiante, true);
+                        dlg.setVisible(true);
+                        if (dlg.isSuccess()) refrescarDatos();
+                    } else if (zona == 2 && !sinPagos && !pagado) {
+                        AnularPagoDialog dlg = new AnularPagoDialog(owner, usuarioActual, idEstudiante);
+                        dlg.setVisible(true);
+                        if (dlg.isSuccess()) refrescarDatos();
+                    }
+                } else if (col == 8) { // Columna APLICAR descuento
                     Object val = modeloTabla.getValueAt(row, 8);
                     if (val instanceof JCheckBox) {
                         gestionarAplicacionDescuento(row);

@@ -80,13 +80,29 @@ public class PagosController {
                 }
             }
 
+            // 8b. Verificar columna nombre_usuario en pagos_realizados (auditoría)
+            try (ResultSet rs = metaData.getColumns(null, null, "pagos_realizados", "nombre_usuario")) {
+                if (!rs.next()) {
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.execute("ALTER TABLE pagos_realizados ADD COLUMN nombre_usuario VARCHAR(100) NULL");
+                    }
+                }
+            }
+
             // 8. Actualizar tipo de estado en planes_pago para soportar CON_SALDO
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute("ALTER TABLE planes_pago MODIFY COLUMN estado ENUM('AL_DIA', 'POR_VENCER', 'ATRASADO', 'CON_SALDO') DEFAULT 'AL_DIA'");
             } catch (SQLException e) {
                 // Manejo silencioso si falla el MODIFY
             }
-            
+
+            // 9. Normalizar metodo_pago: "Cuenta Bancaria" → "Bancolombia"
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("UPDATE pagos_realizados SET metodo_pago = 'Bancolombia' WHERE metodo_pago = 'Cuenta Bancaria'");
+            } catch (SQLException e) {
+                System.err.println("Error normalizando metodo_pago: " + e.getMessage());
+            }
+
         } catch (SQLException e) {
             System.err.println("Error verificando columnas: " + e.getMessage());
         }
@@ -372,6 +388,7 @@ public class PagosController {
                     h.put("comprobante", rs.getString("comprobante"));
                     h.put("comprobante_ruta", rs.getString("comprobante_ruta"));
                     h.put("saldo_despues", rs.getDouble("saldo_restante"));
+                    h.put("nombre_usuario", rs.getString("nombre_usuario"));
                     historial.add(h);
                 }
             }
@@ -414,7 +431,7 @@ public class PagosController {
     /**
      * Anula un pago y revierte el plan de pago del estudiante de forma transaccional.
      */
-    public boolean anularPago(int idPago, int idEstudiante, int idUsuario, String motivo, String ip) {
+    public boolean anularPago(int idPago, int idEstudiante, int idUsuario, String motivo, String ip, String nombreUsuario) {
         Connection conn = null;
         try {
             conn = Database.getConexion();
@@ -479,7 +496,8 @@ public class PagosController {
 
             new ActividadController().registrarActividad(
                 "Pago anulado. Monto revertido al saldo del estudiante.",
-                model.Actividad.TipoActividad.PAGO
+                model.Actividad.TipoActividad.PAGO,
+                nombreUsuario
             );
 
             return true;

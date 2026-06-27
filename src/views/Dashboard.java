@@ -67,11 +67,11 @@ public class Dashboard extends JFrame {
 
         // Establecer el icono de la aplicación
         try {
-            java.net.URL iconURL = getClass().getResource("/assets/adminnexus_icons_pract.png");
+            java.net.URL iconURL = getClass().getResource("/assets/adminnexus_icons_new-removebg-preview.png");
             if (iconURL != null) {
                 setIconImage(new ImageIcon(iconURL).getImage());
             } else {
-                setIconImage(new ImageIcon("src/assets/adminnexus_icons_pract.png").getImage());
+                setIconImage(new ImageIcon("src/assets/adminnexus_icons_new-removebg-preview.png").getImage());
             }
         } catch (Exception e) {
             System.err.println("No se pudo cargar el icono de la aplicación");
@@ -257,7 +257,7 @@ public class Dashboard extends JFrame {
         menuPanel.add(createMenuItem("Pagos", new PaymentIcon(COLOR_TEXT), false, false, () -> abrirPagos()));
         menuPanel.add(createMenuItem("Programas", new LayersIcon(COLOR_TEXT), false, false, () -> abrirProgramas()));
         menuPanel.add(createMenuItem("Academia", new AcademicIcon(COLOR_TEXT), false, false, null));
-        menuPanel.add(createMenuItem("Reportes", new ChartIcon(COLOR_TEXT), false, false, null));
+        menuPanel.add(createMenuItem("Reportes", new ChartIcon(COLOR_TEXT), false, false, () -> abrirReportes()));
         menuPanel.add(createMenuItem("Ajustes", new GearIcon(COLOR_TEXT), false, false, () -> abrirAjustes()));
 
         // Opción de Gestión de Usuarios solo para Administradores
@@ -381,6 +381,10 @@ public class Dashboard extends JFrame {
     public void abrirProgramas() {
         ProgramasPanel panel = new ProgramasPanel(usuarioActual);
         cargarPanel(panel);
+    }
+
+    public void abrirReportes() {
+        cargarPanel(new ReportesPanel(usuarioActual));
     }
 
     /**
@@ -824,12 +828,23 @@ public class Dashboard extends JFrame {
                         "<html><div style='width:250px;'>" + act.getDescripcion() + "</div></html>");
                 lblDesc.setFont(FONT_MAIN);
 
+                JPanel bottomPanel = new JPanel(new GridLayout(0, 1, 0, 2));
+                bottomPanel.setOpaque(false);
+
                 JLabel lblFecha = new JLabel(sdf.format(act.getFecha()));
                 lblFecha.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-                lblFecha.setForeground(COLOR_TEXT);
+                lblFecha.setForeground(new Color(107, 114, 128));
+                bottomPanel.add(lblFecha);
+
+                if (act.getNombreUsuario() != null && !act.getNombreUsuario().isEmpty()) {
+                    JLabel lblUsuario = new JLabel("Por: " + act.getNombreUsuario());
+                    lblUsuario.setFont(new Font("Segoe UI", Font.BOLD, 10));
+                    lblUsuario.setForeground(COLOR_PRIMARY);
+                    bottomPanel.add(lblUsuario);
+                }
 
                 itemPanel.add(lblDesc, BorderLayout.CENTER);
-                itemPanel.add(lblFecha, BorderLayout.SOUTH);
+                itemPanel.add(bottomPanel, BorderLayout.SOUTH);
                 listaPanel.add(itemPanel);
             }
         }

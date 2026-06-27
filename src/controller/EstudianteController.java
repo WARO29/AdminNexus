@@ -19,6 +19,9 @@ public class EstudianteController {
     public static final int REGISTROS_POR_PAGINA = 10;
     
     private ActividadController actividadController;
+    private String nombreUsuarioActual = null;
+
+    public void setNombreUsuario(String nombre) { this.nombreUsuarioActual = nombre; }
 
     public EstudianteController() {
         actividadController = new ActividadController();
@@ -232,19 +235,28 @@ public class EstudianteController {
 
             boolean exito = pstmt.executeUpdate() > 0;
             if (exito) {
-                // Obtener ID generado
+                // Post-procesamiento aislado: un fallo aquí no debe revertir el éxito del INSERT
                 try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
                         int idGenerado = generatedKeys.getInt(1);
-                        // Inicializar Plan de Pago automáticamente (Req: $500.000)
-                        new PagosController().inicializarPlanEstudiante(idGenerado);
+                        try {
+                            new PagosController().inicializarPlanEstudiante(idGenerado);
+                        } catch (Exception ex) {
+                            System.err.println("Error al inicializar plan de pago: " + ex.getMessage());
+                        }
                     }
+                } catch (Exception ex) {
+                    System.err.println("Error al obtener ID generado: " + ex.getMessage());
                 }
-                
-                actividadController.registrarActividad(
-                    "Se registró el estudiante: " + estudiante.getNombre() + " " + estudiante.getApellido() + " (" + estudiante.getCodigo() + ")", 
-                    model.Actividad.TipoActividad.ESTUDIANTE
-                );
+                try {
+                    actividadController.registrarActividad(
+                        "Se registró el estudiante: " + estudiante.getNombre() + " " + estudiante.getApellido() + " (" + estudiante.getCodigo() + ")",
+                        model.Actividad.TipoActividad.ESTUDIANTE,
+                        nombreUsuarioActual
+                    );
+                } catch (Exception ex) {
+                    System.err.println("Error al registrar actividad: " + ex.getMessage());
+                }
             }
             return exito;
         } catch (SQLException e) {
@@ -311,8 +323,9 @@ public class EstudianteController {
             boolean exito = pstmt.executeUpdate() > 0;
             if (exito) {
                 actividadController.registrarActividad(
-                    "Se actualizó el estudiante: " + estudiante.getNombre() + " " + estudiante.getApellido() + " (" + estudiante.getCodigo() + ")", 
-                    model.Actividad.TipoActividad.ESTUDIANTE
+                    "Se actualizó el estudiante: " + estudiante.getNombre() + " " + estudiante.getApellido() + " (" + estudiante.getCodigo() + ")",
+                    model.Actividad.TipoActividad.ESTUDIANTE,
+                    nombreUsuarioActual
                 );
             }
             return exito;
@@ -337,8 +350,9 @@ public class EstudianteController {
             boolean exito = pstmt.executeUpdate() > 0;
             if (exito) {
                 actividadController.registrarActividad(
-                    "Se eliminó un estudiante (ID: " + idEstudiante + ")", 
-                    model.Actividad.TipoActividad.ESTUDIANTE
+                    "Se eliminó un estudiante (ID: " + idEstudiante + ")",
+                    model.Actividad.TipoActividad.ESTUDIANTE,
+                    nombreUsuarioActual
                 );
             }
             return exito;

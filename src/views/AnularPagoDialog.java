@@ -235,7 +235,7 @@ public class AnularPagoDialog extends JDialog {
 
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        boolean ok = pagosController.anularPago(idPago, idEstudiante, usuarioActual.getIdusuario(), motivo, "Localhost");
+        boolean ok = pagosController.anularPago(idPago, idEstudiante, usuarioActual.getIdusuario(), motivo, "Localhost", usuarioActual.getNombreAdmin());
         if (ok) {
             success = true;
             JOptionPane.showMessageDialog(this,

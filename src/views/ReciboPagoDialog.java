@@ -43,14 +43,19 @@ public class ReciboPagoDialog extends JDialog {
     private final Font FONT_MAIN = new Font("Segoe UI", Font.PLAIN, 13);
     private final Font FONT_BOLD = new Font("Segoe UI", Font.BOLD, 13);
 
-    private final NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(new Locale("es", "CO"));
+    private final NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(Locale.of("es", "CO"));
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     public ReciboPagoDialog(Window owner, String nombreEstudiante, String programa, PagoRealizado pago) {
         super(owner, "Recibo de Pago Premium", Dialog.ModalityType.APPLICATION_MODAL);
-        setSize(500, 750);
+        Dimension screen = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
+        int dialogW = Math.min(540, screen.width  - 100);
+        int dialogH = Math.min(820, screen.height - 80);
+        setMinimumSize(new Dimension(400, 460));
+        setMaximumSize(new Dimension(720, 960));
+        setSize(dialogW, dialogH);
         setLocationRelativeTo(owner);
-        setResizable(false);
+        setResizable(true);
 
         // Obtener datos adicionales del plan
         PagosController ctrl = new PagosController();
@@ -94,6 +99,7 @@ public class ReciboPagoDialog extends JDialog {
         content.add(Box.createVerticalStrut(15));
         JSeparator sep = new JSeparator();
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
+        sep.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(sep);
         content.add(Box.createVerticalStrut(15));
 

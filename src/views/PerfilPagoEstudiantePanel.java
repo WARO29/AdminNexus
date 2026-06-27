@@ -51,8 +51,8 @@ public class PerfilPagoEstudiantePanel extends JPanel {
     private Usuario usuarioActual;
     private int idEstudiante;
     private PagosController pagosController;
-    private NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(new Locale("es", "CO"));
-    private SimpleDateFormat dateFormat = new SimpleDateFormat("dd 'de' MMMM, yyyy", new Locale("es", "ES"));
+    private NumberFormat currencyFormat = NumberFormat.getCurrencyInstance(Locale.of("es", "CO"));
+    private SimpleDateFormat dateFormat = new SimpleDateFormat("dd 'de' MMMM, yyyy", Locale.of("es", "ES"));
 
     public PerfilPagoEstudiantePanel(Usuario usuario, int idEstudiante) {
         this.usuarioActual = usuario;
@@ -97,115 +97,135 @@ public class PerfilPagoEstudiantePanel extends JPanel {
     }
 
     private JPanel crearHeaderSocial(Map<String, Object> data) {
-        JPanel header = new JPanel(null);
-        header.setPreferredSize(new Dimension(0, 350));
-        header.setBackground(COLOR_CARD);
+        double saldoHeader = data.get("saldo") != null ? (double) data.get("saldo") : 0;
+        boolean headerPagado = saldoHeader <= 0.001;
 
-        // Portada (Cover Image Gradient)
+        // Constantes de layout
+        final int COVER_H  = 155;
+        final int AVT_SIZE = 110;
+        final int AVT_X    = 30;
+        final int AVT_TOP  = COVER_H - AVT_SIZE / 2;   // mitad del avatar sobre la portada
+        final int TEXT_X   = AVT_X + AVT_SIZE + 16;
+        final int HEADER_H = AVT_TOP + AVT_SIZE + 50;  // espacio bajo el avatar
+
+        // Portada (degradado) — se agrega AL FINAL para quedar detrás de todo
         JPanel cover = new JPanel() {
-            @Override
-            protected void paintComponent(Graphics g) {
+            @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
-                GradientPaint gp = new GradientPaint(0, 0, COLOR_PRIMARY, getWidth(), 0, COLOR_PRIMARY.darker());
-                g2.setPaint(gp);
+                g2.setPaint(new GradientPaint(0, 0, COLOR_PRIMARY, getWidth(), 0, COLOR_PRIMARY.darker()));
                 g2.fillRect(0, 0, getWidth(), getHeight());
                 g2.dispose();
             }
         };
-        cover.setBounds(0, 0, 2000, 200);
 
-        // Avatar Circular
+        // Avatar circular
         JLabel avatar = new JLabel() {
-            @Override
-            protected void paintComponent(Graphics g) {
+            @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(COLOR_CARD);
                 g2.fillOval(0, 0, getWidth(), getHeight());
-                g2.setColor(new Color(229, 231, 235));
+                g2.setColor(COLOR_PRIMARY.brighter());
                 g2.setStroke(new BasicStroke(4));
                 g2.drawOval(2, 2, getWidth()-4, getHeight()-4);
-                
-                // Iniciales o icono
                 g2.setColor(COLOR_PRIMARY);
-                g2.setFont(new Font("Segoe UI", Font.BOLD, 60));
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 44));
                 String nombre = data.get("nombre") != null ? data.get("nombre").toString() : "E";
-                String inicial = nombre.isEmpty() ? "E" : nombre.substring(0, 1);
+                String inicial = nombre.isEmpty() ? "E" : nombre.substring(0, 1).toUpperCase();
                 FontMetrics fm = g2.getFontMetrics();
-                g2.drawString(inicial, (getWidth()-fm.stringWidth(inicial))/2, (getHeight()+fm.getAscent())/2 - 10);
+                g2.drawString(inicial, (getWidth()-fm.stringWidth(inicial))/2,
+                              (getHeight()+fm.getAscent()-fm.getDescent())/2);
                 g2.dispose();
             }
         };
-        avatar.setBounds(50, 120, 160, 160);
 
-        // Nombre e Info
+        // Nombre y subinfo
         JLabel name = new JLabel(data.get("nombre") != null ? data.get("nombre").toString() : "Estudiante");
-        name.setFont(FONT_NAME);
+        name.setFont(new Font("Segoe UI", Font.BOLD, 22));
         name.setForeground(COLOR_TEXT);
-        name.setBounds(230, 210, 600, 40);
 
-        JLabel subInfo = new JLabel(data.get("programa") + " • Código: " + data.get("codigo"));
+        JLabel subInfo = new JLabel(data.get("programa") + "  •  Cód: " + data.get("codigo"));
         subInfo.setFont(FONT_MAIN);
         subInfo.setForeground(COLOR_TEXT_MUTED);
-        subInfo.setBounds(230, 250, 600, 20);
 
-        // Botón Atrás
+        // Botones — anclados a la IZQUIERDA del cover para evitar cálculos negativos
         JButton btnBack = new JButton("← Volver");
-        btnBack.setBounds(30, 30, 130, 34);
         btnBack.setFocusPainted(false);
         btnBack.addActionListener(e -> {
             Window w = SwingUtilities.getWindowAncestor(this);
             if (w instanceof Dashboard) ((Dashboard) w).abrirPagos();
         });
 
-        // Botón Registrar Pago (header)
-        double saldoHeader = data.get("saldo") != null ? (double) data.get("saldo") : 0;
-        boolean headerPagado = saldoHeader <= 0.001;
-
         JButton btnPagarHeader = new JButton("+ Registrar Pago");
-        btnPagarHeader.setBounds(170, 30, 160, 34);
-        btnPagarHeader.setBackground(headerPagado ? Color.GRAY : COLOR_PRIMARY);
+        btnPagarHeader.setBackground(headerPagado ? new Color(107,114,128) : COLOR_PRIMARY);
         btnPagarHeader.setForeground(Color.WHITE);
-        btnPagarHeader.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnPagarHeader.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnPagarHeader.setFocusPainted(false);
+        btnPagarHeader.setOpaque(true);
+        btnPagarHeader.setBorderPainted(false);
         btnPagarHeader.setEnabled(!headerPagado);
         btnPagarHeader.addActionListener(e -> abrirDialogoRegistroPago(false));
 
-        // Botón Pago Preferencial (header)
-        JButton btnPreferencialHeader = new JButton("Preferencial", crearIconoEstrella());
-        btnPreferencialHeader.setBounds(340, 30, 165, 34);
-        btnPreferencialHeader.setBackground(headerPagado ? Color.GRAY : new Color(139, 92, 246));
+        JButton btnPreferencialHeader = new JButton("Preferencial");
+        btnPreferencialHeader.setBackground(headerPagado ? new Color(107,114,128) : new Color(139, 92, 246));
         btnPreferencialHeader.setForeground(Color.WHITE);
-        btnPreferencialHeader.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnPreferencialHeader.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnPreferencialHeader.setFocusPainted(false);
+        btnPreferencialHeader.setOpaque(true);
+        btnPreferencialHeader.setBorderPainted(false);
         btnPreferencialHeader.setEnabled(!headerPagado);
         btnPreferencialHeader.addActionListener(e -> abrirDialogoRegistroPago(true));
 
+        // Panel null-layout con doLayout() para que el cover llene el ancho siempre
+        JPanel header = new JPanel(null) {
+            @Override public void doLayout() {
+                int w = getWidth();
+                if (w < 10) return;
+                // Cover ocupa todo el ancho
+                cover.setBounds(0, 0, w, COVER_H);
+                // Avatar solapado sobre el borde inferior del cover
+                avatar.setBounds(AVT_X, AVT_TOP, AVT_SIZE, AVT_SIZE);
+                // Nombre y subinfo a la derecha del avatar, alineados con su centro inferior
+                int nameY = AVT_TOP + AVT_SIZE - 44;
+                name.setBounds(TEXT_X, nameY, Math.max(w - TEXT_X - 10, 80), 30);
+                subInfo.setBounds(TEXT_X, nameY + 32, Math.max(w - TEXT_X - 10, 80), 20);
+                // Botones en la esquina superior izquierda del cover
+                btnBack.setBounds(16, 12, 110, 30);
+                btnPagarHeader.setBounds(136, 12, 145, 30);
+                btnPreferencialHeader.setBounds(289, 12, 140, 30);
+            }
+        };
+        header.setPreferredSize(new Dimension(0, HEADER_H));
+        header.setBackground(COLOR_CARD);
+
+        // ORDEN IMPORTANTE EN SWING (null layout):
+        // El primer componente agregado queda DELANTE (pintado último).
+        // → Botones y avatar primero (al frente), cover último (detrás).
         header.add(btnBack);
         header.add(btnPagarHeader);
         header.add(btnPreferencialHeader);
-        header.add(avatar);
-        header.add(name);
         header.add(subInfo);
-        header.add(cover);
+        header.add(name);
+        header.add(avatar);
+        header.add(cover);   // ← añadido ÚLTIMO = pintado PRIMERO = detrás de todo
 
         return header;
     }
 
     private JPanel crearCuerpoSocial(Map<String, Object> data) {
-        JPanel body = new JPanel(new BorderLayout(30, 0));
+        JPanel body = new JPanel(new BorderLayout(20, 0));
         body.setOpaque(false);
-        body.setBorder(new EmptyBorder(0, 50, 50, 50));
+        body.setBorder(new EmptyBorder(0, 20, 30, 20));
 
         // Columna Izquierda: Estadísticas (Widgets)
         JPanel leftCol = new JPanel();
         leftCol.setLayout(new BoxLayout(leftCol, BoxLayout.Y_AXIS));
-        leftCol.setPreferredSize(new Dimension(350, 0));
+        leftCol.setPreferredSize(new Dimension(270, 0));
+        leftCol.setMinimumSize(new Dimension(200, 0));
+        leftCol.setMaximumSize(new Dimension(300, Integer.MAX_VALUE));
         leftCol.setOpaque(false);
 
         leftCol.add(crearWidgetInfo("Resumen Financiero", data));
-        leftCol.add(Box.createVerticalStrut(20));
-        leftCol.add(crearWidgetAcciones(data));
 
         // Columna Derecha: Timeline (Muro de pagos)
         JPanel rightCol = new JPanel(new BorderLayout());
@@ -222,11 +242,15 @@ public class PerfilPagoEstudiantePanel extends JPanel {
 
         List<Map<String, Object>> historial = pagosController.obtenerHistorialEstudiante(idEstudiante);
         if (historial.isEmpty()) {
-            timelineContainer.add(new JLabel("No hay pagos registrados aún."));
+            JLabel lblVacio = new JLabel("No hay pagos registrados aún.");
+            lblVacio.setFont(FONT_MAIN);
+            lblVacio.setForeground(COLOR_TEXT_MUTED);
+            lblVacio.setAlignmentX(Component.CENTER_ALIGNMENT);
+            timelineContainer.add(lblVacio);
         } else {
             for (Map<String, Object> pago : historial) {
                 timelineContainer.add(crearTimelineItem(pago));
-                timelineContainer.add(Box.createVerticalStrut(15));
+                timelineContainer.add(Box.createVerticalStrut(12));
             }
         }
 
@@ -344,51 +368,84 @@ public class PerfilPagoEstudiantePanel extends JPanel {
     }
 
     private JPanel crearTimelineItem(Map<String, Object> pago) {
-        JPanel item = new JPanel(new BorderLayout(15, 0));
+        JPanel item = new JPanel(new BorderLayout(12, 0));
         item.setBackground(COLOR_CARD);
         item.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(COLOR_BORDER),
-                new EmptyBorder(20, 20, 20, 20)
+                new EmptyBorder(14, 16, 14, 16)
         ));
+        item.setMaximumSize(new Dimension(780, 200));
+        item.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Icono circular a la izquierda
+        // Indicador de línea de tiempo a la izquierda
         JPanel dotPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(COLOR_PRIMARY);
-                g2.fillOval(10, 0, 12, 12);
+                g2.fillOval(5, 4, 12, 12);
                 g2.setStroke(new BasicStroke(2));
-                g2.drawLine(16, 12, 16, 100);
+                g2.drawLine(11, 16, 11, getHeight());
                 g2.dispose();
             }
         };
-        dotPanel.setPreferredSize(new Dimension(30, 0));
+        dotPanel.setPreferredSize(new Dimension(24, 0));
         dotPanel.setOpaque(false);
 
-        JPanel content = new JPanel(new BorderLayout());
+        // Contenido principal
+        JPanel content = new JPanel(new BorderLayout(0, 3));
         content.setOpaque(false);
 
-        JLabel lblMonto = new JLabel("Pago Recibido: " + currencyFormat.format(pago.get("monto")));
-        lblMonto.setFont(FONT_SECTION);
-        lblMonto.setForeground(COLOR_PRIMARY);
+        // Fila superior: monto + saldo restante
+        JPanel topRow = new JPanel(new BorderLayout());
+        topRow.setOpaque(false);
 
-        JLabel lblFecha = new JLabel(dateFormat.format(pago.get("fecha")));
-        lblFecha.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblFecha.setForeground(COLOR_TEXT_MUTED);
+        JLabel lblMonto = new JLabel("Pago: " + currencyFormat.format(pago.get("monto")));
+        lblMonto.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        lblMonto.setForeground(new Color(22, 163, 74));
 
-        String detalle = "Modalidad: " + pago.get("modalidad") + " | Método: " + pago.get("metodo");
-        JLabel lblDetalle = new JLabel(detalle);
+        Object saldoRest = pago.get("saldo_despues");
+        JLabel lblSaldo = new JLabel("Saldo: " + currencyFormat.format(saldoRest != null ? saldoRest : 0));
+        lblSaldo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblSaldo.setForeground(COLOR_TEXT_MUTED);
+        lblSaldo.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+
+        topRow.add(lblMonto, BorderLayout.WEST);
+        topRow.add(lblSaldo, BorderLayout.EAST);
+
+        // Fila media: modalidad y método (con HTML para que envuelva en pantallas pequeñas)
+        String modalidadTexto = pago.get("modalidad") != null ? pago.get("modalidad").toString() : "";
+        String metodoTexto    = pago.get("metodo")    != null ? pago.get("metodo").toString()    : "";
+        JLabel lblDetalle = new JLabel("<html><b>Modalidad:</b> " + modalidadTexto +
+                                       "&nbsp;&nbsp;<b>Método:</b> " + metodoTexto + "</html>");
         lblDetalle.setFont(FONT_MAIN);
         lblDetalle.setForeground(COLOR_TEXT);
 
-        content.add(lblMonto, BorderLayout.NORTH);
-        content.add(lblFecha, BorderLayout.SOUTH);
+        // Fila inferior: fecha + usuario
+        JPanel bottomRow = new JPanel(new BorderLayout());
+        bottomRow.setOpaque(false);
+
+        JLabel lblFecha = new JLabel(dateFormat.format(pago.get("fecha")));
+        lblFecha.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lblFecha.setForeground(COLOR_TEXT_MUTED);
+        bottomRow.add(lblFecha, BorderLayout.WEST);
+
+        String nombreUsuario = (String) pago.get("nombre_usuario");
+        if (nombreUsuario != null && !nombreUsuario.isEmpty()) {
+            JLabel lblUsuario = new JLabel("Por: " + nombreUsuario);
+            lblUsuario.setFont(new Font("Segoe UI", Font.BOLD, 11));
+            lblUsuario.setForeground(COLOR_PRIMARY);
+            lblUsuario.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+            bottomRow.add(lblUsuario, BorderLayout.EAST);
+        }
+
+        content.add(topRow,    BorderLayout.NORTH);
         content.add(lblDetalle, BorderLayout.CENTER);
+        content.add(bottomRow, BorderLayout.SOUTH);
 
         item.add(dotPanel, BorderLayout.WEST);
-        item.add(content, BorderLayout.CENTER);
+        item.add(content,  BorderLayout.CENTER);
 
         return item;
     }

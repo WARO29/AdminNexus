@@ -15,6 +15,7 @@ public class Actividad {
     private String descripcion;
     private TipoActividad tipo;
     private Timestamp fecha;
+    private String nombreUsuario;
 
     public Actividad() {
     }
@@ -54,5 +55,13 @@ public class Actividad {
 
     public void setFecha(Timestamp fecha) {
         this.fecha = fecha;
+    }
+
+    public String getNombreUsuario() {
+        return nombreUsuario;
+    }
+
+    public void setNombreUsuario(String nombreUsuario) {
+        this.nombreUsuario = nombreUsuario;
     }
 }

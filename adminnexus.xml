@@ -3,22 +3,22 @@
   <dontWrapJar>false</dontWrapJar>
   <headerType>gui</headerType>
   <jar>C:\Users\pc\Documents\NetBeansProjects\AdminNexus\dist\AdminNexus.jar</jar>
-  <outfile>C:\Users\pc\Documents\NetBeansProjects\AdminNexus.exe</outfile>
+  <outfile>C:\Users\pc\Documents\NetBeansProjects\AdminNexus\AdminNexus.exe</outfile>
   <errTitle></errTitle>
   <cmdLine></cmdLine>
   <chdir>.</chdir>
   <priority>normal</priority>
-  <downloadUrl>http://java.com/download</downloadUrl>
+  <downloadUrl></downloadUrl>
   <supportUrl></supportUrl>
   <stayAlive>false</stayAlive>
   <restartOnCrash>false</restartOnCrash>
   <manifest></manifest>
-  <icon>C:\Users\pc\Desktop\adminnexus.ico</icon>
+  <icon>C:\Users\pc\Documents\NetBeansProjects\AdminNexus\src\assets\AdminNexus_icons_new-removebg-preview.ico</icon>
   <jre>
     <path>%JAVA_HOME%;%PATH%</path>
     <requiresJdk>false</requiresJdk>
     <requires64Bit>false</requires64Bit>
-    <minVersion>24.0.2</minVersion>
+    <minVersion>24.0.0</minVersion>
     <maxVersion></maxVersion>
   </jre>
 </launch4jConfig>

@@ -26,6 +26,9 @@ public class ProgramaController {
     public static final int REGISTROS_POR_PAGINA = 10;
     
     private ActividadController actividadController;
+    private String nombreUsuarioActual = null;
+
+    public void setNombreUsuario(String nombre) { this.nombreUsuarioActual = nombre; }
 
     public ProgramaController() {
         actividadController = new ActividadController();
@@ -100,8 +103,9 @@ public class ProgramaController {
             if (exito) {
                 invalidarCache(); // El caché ya no es válido
                 actividadController.registrarActividad(
-                    "Se creó el programa: " + programa.getNombre() + " (" + programa.getCodigo() + ")", 
-                    Actividad.TipoActividad.PROGRAMA
+                    "Se creó el programa: " + programa.getNombre() + " (" + programa.getCodigo() + ")",
+                    Actividad.TipoActividad.PROGRAMA,
+                    nombreUsuarioActual
                 );
             }
             return exito;
@@ -195,8 +199,9 @@ public class ProgramaController {
             if (exito) {
                 invalidarCache();
                 actividadController.registrarActividad(
-                    "Se actualizó el programa: " + programa.getNombre() + " (" + programa.getCodigo() + ")", 
-                    Actividad.TipoActividad.PROGRAMA
+                    "Se actualizó el programa: " + programa.getNombre() + " (" + programa.getCodigo() + ")",
+                    Actividad.TipoActividad.PROGRAMA,
+                    nombreUsuarioActual
                 );
             }
             return exito;
@@ -222,8 +227,9 @@ public class ProgramaController {
             if (exito) {
                 invalidarCache();
                 actividadController.registrarActividad(
-                    "Se eliminó un programa (ID: " + idPrograma + ")", 
-                    Actividad.TipoActividad.PROGRAMA
+                    "Se eliminó un programa (ID: " + idPrograma + ")",
+                    Actividad.TipoActividad.PROGRAMA,
+                    nombreUsuarioActual
                 );
             }
             return exito;
